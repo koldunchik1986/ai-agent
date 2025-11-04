@@ -15,8 +15,8 @@ class ModelConfig:
     cache_dir: str = "/home/ai-agent/models"
     device: str = "cuda"
     torch_dtype: str = "float16"
-    load_in_8bit: bool = True  # Для 8GB GPU
-    load_in_4bit: bool = False
+    load_in_8bit: bool = False  # Для 8GB GPU
+    load_in_4bit: bool = True # Для 4GB GPU
     trust_remote_code: bool = True
     use_cache: bool = True
     max_new_tokens: int = 2048

@@ -30,7 +30,7 @@ echo "🔍 Проверка CUDA..."
 if ! command -v nvidia-smi &> /dev/null; then
     echo "❌ NVIDIA драйвер не найден. Установите NVIDIA драйверы:"
     echo "   sudo apt update"
-    echo "   sudo apt install nvidia-driver-470"
+#    echo "   sudo apt install nvidia-driver-535"
     echo "   sudo reboot"
     exit 1
 fi
@@ -93,8 +93,11 @@ echo "🎮 Настройка GPU поддержки..."
 if ! docker run --rm --gpus all nvidia/cuda:11.8-base-ubuntu20.04 nvidia-smi &> /dev/null; then
     echo "📦 Установка NVIDIA Container Toolkit..."
     distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
-    curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | apt-key add -
-    curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | tee /etc/apt/sources.list.d/nvidia-docker.list
+    # Используем современный способ без apt-key
+    curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit.gpg
+    curl -s -L "https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list" | \
+        sed 's#https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit.gpg] https://#g' | \
+        tee /etc/apt/sources.list.d/nvidia-docker.list
     
     apt-get update
     apt-get install -y nvidia-docker2
@@ -164,10 +167,10 @@ fi
 
 # Создание виртуального окружения для разработки
 if [ ! -d "venv" ]; then
-    python3 -m venv venv
+#    python3 -m venv venv
     source venv/bin/activate
     pip install --upgrade pip
-    pip install -r requirements.txt
+#    pip install -r requirements.txt
     echo "✅ Виртуальное окружение создано"
 else
     echo "✅ Виртуальное окружение уже существует"
