@@ -421,7 +421,7 @@ email: ___________________
 Епоха 3/3: loss=0.892, accuracy=0.84
  
 ✓ Навчання завершено!
-💾 Модель збережена: /home/sda3/ai-agent/models/fine_tuned_model_20240315_143022
+💾 Модель збережена: /home/ai-agent/models/fine_tuned_model_20240315_143022
 📊 Метрики навчання:
    - Train loss: 0.892
    - Validation loss: 0.934
@@ -701,7 +701,7 @@ def prepare_training_data():
     processor = create_document_processor()
     
     # Обробка документів
-    documents = processor.process_directory("/home/sda3/ai-agent/documents")
+    documents = processor.process_directory("/home/ai-agent/documents")
     
     print(f"Оброблено документів: {len(documents)}")
     
@@ -722,7 +722,7 @@ trainer, train_data, eval_data = prepare_training_data()
 # Обучение с сохранением
 result = trainer.train_model(
     documents, 
-    save_path="/home/sda3/ai-agent/models/specialized_model"
+    save_path="/home/ai-agent/models/specialized_model"
 )
 ```
  
@@ -754,7 +754,7 @@ def train_legal_model():
     # Запуск навчання
     result = trainer.train_model(
         legal_documents,
-        save_path="/home/sda3/ai-agent/models/legal_specialist"
+        save_path="/home/ai-agent/models/legal_specialist"
     )
     
     print("✅ Юридична модель навчена успішно!")
@@ -781,7 +781,7 @@ def train_programming_model():
     trainer = create_trainer()
     result = trainer.train_model(
         programming_documents,
-        save_path="/home/sda3/ai-agent/models/code_specialist"
+        save_path="/home/ai-agent/models/code_specialist"
     )
     
     print("✅ Програмна модель навчена успішно!")
@@ -894,7 +894,7 @@ async def upload_documents(files: List[UploadFile] = File(...)):
         
         for file in files:
             # Збереження файлу
-            file_path = f"/home/sda3/ai-agent/documents/{file.filename}"
+            file_path = f"/home/ai-agent/documents/{file.filename}"
             with open(file_path, "wb") as buffer:
                 content = await file.read()
                 buffer.write(content)

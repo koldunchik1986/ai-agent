@@ -11,7 +11,7 @@ NC=\033[0m # No Color
  
 # Переменные
 COMPOSE_FILE=docker-compose.yml
-BACKUP_DIR=/home/sda3/backups
+BACKUP_DIR=/home/backups
 PROJECT_NAME=mistral-ai-agent
  
 help: ## Показать справку
@@ -125,7 +125,7 @@ monitor: ## Мониторинг ресурсов
 	@free -h
 	@echo ""
 	@echo "$(BLUE)Использование диска:$(NC)"
-	@df -h /home/sda3
+	@df -h /home
 	@echo ""
 	@echo "$(BLUE)GPU статус:$(NC)"
 	@nvidia-smi --query-gpu=name,memory.used,memory.total,temperature.gpu,utilization.gpu --format=csv,noheader,nounits 2>/dev/null || echo "$(YELLOW)GPU не найден$(NC)"
@@ -182,7 +182,7 @@ docs: ## Открыть документацию
 # Команды для работы с моделями
 list-models: ## Показать доступные модели
 	@echo "$(BLUE)🤖 Доступные модели:$(NC)"
-	@ls -la /home/sda3/ai-agent/models/ 2>/dev/null || echo "$(YELLOW)Директория моделей не найдена$(NC)"
+	@ls -la /home/ai-agent/models/ 2>/dev/null || echo "$(YELLOW)Директория моделей не найдена$(NC)"
  
 save-model: ## Сохранить текущую модель
 	@echo "$(BLUE)💾 Сохранение модели...$(NC)"
@@ -198,9 +198,9 @@ info: ## Показать информацию о проекте
 	@echo "Docker Compose: $(COMPOSE_FILE)"
 	@echo ""
 	@echo "$(BLUE)Пути к данным:$(NC)"
-	@echo "Модели: /home/sda3/ai-agent/models"
-	@echo "Документы: /home/sda3/ai-agent/documents"
-	@echo "Кэш: /home/sda3/ai-agent/cache"
+	@echo "Модели: /home/ai-agent/models"
+	@echo "Документы: /home/ai-agent/documents"
+	@echo "Кэш: /home/ai-agent/cache"
 	@echo "Бэкапы: $(BACKUP_DIR)"
 	@echo ""
 	@echo "$(BLUE)Сетевые порты:$(NC)"

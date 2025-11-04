@@ -62,10 +62,10 @@ run_dev() {
     fi
     
     source venv/bin/activate
-    export AGENT_HOME="/home/sda3/ai-agent"
-    export MODEL_CACHE_PATH="/home/sda3/ai-agent/models"
-    export DOCUMENT_PATH="/home/sda3/ai-agent/documents"
-    export CACHE_PATH="/home/sda3/ai-agent/cache"
+    export AGENT_HOME="/home/ai-agent"
+    export MODEL_CACHE_PATH="/home/ai-agent/models"
+    export DOCUMENT_PATH="/home/ai-agent/documents"
+    export CACHE_PATH="/home/ai-agent/cache"
     
     python -m src.cli_interface
 }
@@ -79,7 +79,7 @@ add_documents() {
     echo "📚 Добавление документов из: $1"
     
     # Копирование документов в директорию
-    cp -r "$1"/* /home/sda3/ai-agent/documents/ 2>/dev/null || true
+    cp -r "$1"/* /home/ai-agent/documents/ 2>/dev/null || true
     
     # Запуск CLI с командой добавления
     docker-compose exec ai-agent python -c "
@@ -92,13 +92,13 @@ cli._add_documents('$1')
 backup_data() {
     echo "💾 Создание резервной копии..."
     
-    BACKUP_DIR="/home/sda3/backups/ai-agent-$(date +%Y%m%d_%H%M%S)"
+    BACKUP_DIR="/home/backups/ai-agent-$(date +%Y%m%d_%H%M%S)"
     mkdir -p "$BACKUP_DIR"
     
     # Копирование данных
-    cp -r /home/sda3/ai-agent/models "$BACKUP_DIR/"
-    cp -r /home/sda3/ai-agent/documents "$BACKUP_DIR/"
-    cp -r /home/sda3/ai-agent/cache "$BACKUP_DIR/"
+    cp -r /home/ai-agent/models "$BACKUP_DIR/"
+    cp -r /home/ai-agent/documents "$BACKUP_DIR/"
+    cp -r /home/ai-agent/cache "$BACKUP_DIR/"
     
     # Экспорт данных из сервисов
     docker-compose exec -T neo4j neo4j-admin dump --database=neo4j --to=/tmp/neo4j.dump
@@ -119,9 +119,9 @@ restore_data() {
     docker-compose down
     
     # Восстановление файлов
-    cp -r "$1"/models/* /home/sda3/ai-agent/models/ 2>/dev/null || true
-    cp -r "$1"/documents/* /home/sda3/ai-agent/documents/ 2>/dev/null || true
-    cp -r "$1"/cache/* /home/sda3/ai-agent/cache/ 2>/dev/null || true
+    cp -r "$1"/models/* /home/ai-agent/models/ 2>/dev/null || true
+    cp -r "$1"/documents/* /home/ai-agent/documents/ 2>/dev/null || true
+    cp -r "$1"/cache/* /home/ai-agent/cache/ 2>/dev/null || true
     
     # Запуск сервисов
     docker-compose up -d
@@ -209,7 +209,7 @@ health_check() {
     
     echo ""
     echo "💾 Использование диска:"
-    du -sh /home/sda3/ai-agent/* 2>/dev/null || echo "Директория не найдена"
+    du -sh /home/ai-agent/* 2>/dev/null || echo "Директория не найдена"
 }
 
 # Основной обработчик команд

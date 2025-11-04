@@ -45,13 +45,13 @@ ai-agent/
 - **GPU**: NVIDIA P104-100 8GB (или другая с 8GB+ памятью)
 - **CUDA**: 11.8+
 - **RAM**: 16GB+ (рекомендуется 32GB)
-- **Storage**: 50GB+ на /home/sda3
+- **Storage**: 50GB+ на /home
  
 ### 2. Установка
  
 ```bash
 # Клонирование проекта
-git clone <repository-url>
+git clone https://github.com/koldunchik1986/ai-agent/
 cd ai-agent
  
 # Запуск установщика
@@ -91,11 +91,11 @@ nvidia-smi
  
 ### Шаг 2: Настройка путей
  
-Создайте директории на диске sda3:
+Создайте директории на диске:
  
 ```bash
-sudo mkdir -p /home/sda3/ai-agent/{models,documents,cache,logs}
-sudo chown -R $USER:$USER /home/sda3/ai-agent
+sudo mkdir -p /home/ai-agent/{models,documents,cache,logs}
+sudo chown -R $USER:$USER /home/ai-agent
 ```
  
 ### Шаг 3: Запуск установщика
@@ -251,8 +251,8 @@ load_in_8bit = True  # Для 8GB GPU
 device = "cuda"
  
 # Пути
-model_cache_dir = "/home/sda3/ai-agent/models"
-documents_path = "/home/sda3/ai-agent/documents"
+model_cache_dir = "/home/ai-agent/models"
+documents_path = "/home/ai-agent/documents"
 ```
  
 ### Neo4j Knowledge Graph
@@ -279,7 +279,7 @@ source venv/bin/activate
 pip install -r requirements.txt
  
 # Запуск в режиме разработки
-export AGENT_HOME="/home/sda3/ai-agent"
+export AGENT_HOME="/home/ai-agent"
 python -m src.cli_interface
 ```
  
@@ -432,7 +432,7 @@ sudo systemctl stop some-service
 # Ручная загрузка
 docker-compose exec ai-agent python -c "
 from transformers import AutoModelForCausalLM
-AutoModelForCausalLM.from_pretrained('mistralai/Mistral-7B-Instruct-v0.3', cache_dir='/home/sda3/ai-agent/models')
+AutoModelForCausalLM.from_pretrained('mistralai/Mistral-7B-Instruct-v0.3', cache_dir='/home/ai-agent/models')
 "
 ```
  

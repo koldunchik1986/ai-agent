@@ -53,7 +53,7 @@ ai-agent/
 - **GPU**: NVIDIA P104-100 8GB (или другая с 8GB+ памятью)
 - **CUDA**: 11.8+
 - **RAM**: 16GB+ (рекомендуется 32GB)
-- **Storage**: 50GB+ на /home/sda3
+- **Storage**: 50GB+ на /home
  
 ### 🛠️ Установка (3 команды)
  
@@ -209,12 +209,12 @@ make status
 - **Knowledge Graph** для структурированных знаний
 - **Web интерфейс**: http://localhost:7474
 - **Bolt**: localhost:7687
-- **Данные**: /home/sda3/ai-agent/neo4j
+- **Данные**: /home/ai-agent/neo4j
  
 ### chroma
 - **Векторная база данных** для RAG
 - **Web интерфейс**: http://localhost:8001
-- **Данные**: /home/sda3/ai-agent/chroma
+- **Данные**: /home/ai-agent/chroma
  
 ## 📚 Документация
  
@@ -238,8 +238,8 @@ use_lora = True  # Эффективное обучение
 lora_r = 16
  
 # Пути
-MODEL_CACHE_PATH = "/home/sda3/ai-agent/models"
-DOCUMENT_PATH = "/home/sda3/ai-agent/documents"
+MODEL_CACHE_PATH = "/home/ai-agent/models"
+DOCUMENT_PATH = "/home/ai-agent/documents"
 ```
  
 ## 🎯 Специализация

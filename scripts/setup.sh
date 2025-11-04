@@ -45,7 +45,7 @@ fi
 
 # Установка директорий
 echo "📁 Создание директорий..."
-BASE_DIR="/home/sda3/ai-agent"
+BASE_DIR="/home/ai-agent"
 mkdir -p $BASE_DIR/{models,documents,cache,logs,neo4j/{data,logs,import},chroma}
 chown -R $SUDO_USER:$SUDO_USER $BASE_DIR
 echo "✅ Директории созданы в $BASE_DIR"
@@ -107,10 +107,10 @@ fi
 # Создание файла переменных окружения
 echo "🔧 Создание переменных окружения..."
 cat > /etc/environment.d/ai-agent.conf << EOF
-AGENT_HOME="/home/sda3/ai-agent"
-MODEL_CACHE_PATH="/home/sda3/ai-agent/models"
-DOCUMENT_PATH="/home/sda3/ai-agent/documents"
-CACHE_PATH="/home/sda3/ai-agent/cache"
+AGENT_HOME="/home/ai-agent"
+MODEL_CACHE_PATH="/home/ai-agent/models"
+DOCUMENT_PATH="/home/ai-agent/documents"
+CACHE_PATH="/home/ai-agent/cache"
 NEO4J_URI="bolt://localhost:7687"
 NEO4J_USER="neo4j"
 NEO4J_PASSWORD="password"
