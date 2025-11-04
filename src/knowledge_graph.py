@@ -1,7 +1,6 @@
-
 """
-\u041c\u043e\u0434\u0443\u043b\u044c \u0440\u0430\u0431\u043e\u0442\u044b \u0441 Knowledge Graph \u043d\u0430 \u0431\u0430\u0437\u0435 Neo4j
-\u0418\u043d\u0442\u0435\u0433\u0440\u0430\u0446\u0438\u044f \u0441 LangChain \u0434\u043b\u044f KAG (Knowledge Augmented Generation)
+Модуль работы с Knowledge Graph на базе Neo4j
+Интеграция с LangChain для KAG (Knowledge Augmented Generation)
 """
 
 import os
@@ -15,7 +14,7 @@ from datetime import datetime
 from neo4j import GraphDatabase
 from py2neo import Graph, Node, Relationship, NodeMatcher
 
-# NLP \u0434\u043b\u044f \u0438\u0437\u0432\u043b\u0435\u0447\u0435\u043d\u0438\u044f \u0441\u0443\u0449\u043d\u043e\u0441\u0442\u0435\u0439
+# NLP для извлечения сущностей
 import spacy
 from transformers import pipeline
 
@@ -32,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class KnowledgeEntity:
-    """\u041a\u043b\u0430\u0441\u0441 \u0434\u043b\u044f \u043f\u0440\u0435\u0434\u0441\u0442\u0430\u0432\u043b\u0435\u043d\u0438\u044f \u0441\u0443\u0449\u043d\u043e\u0441\u0442\u0438 \u0432 knowledge graph"""
+    """Класс для представления сущности в knowledge graph"""
     name: str
     type: str
     properties: Dict[str, Any]
@@ -41,7 +40,7 @@ class KnowledgeEntity:
 
 @dataclass
 class KnowledgeRelation:
-    """\u041a\u043b\u0430\u0441\u0441 \u0434\u043b\u044f \u043f\u0440\u0435\u0434\u0441\u0442\u0430\u0432\u043b\u0435\u043d\u0438\u044f \u043e\u0442\u043d\u043e\u0448\u0435\u043d\u0438\u044f \u0432 knowledge graph"""
+    """Класс для представления отношения в knowledge graph"""
     source: str
     target: str
     relation_type: str
@@ -50,7 +49,7 @@ class KnowledgeRelation:
     confidence: float = 0.8
 
 class KnowledgeGraphManager:
-    """\u041e\u0441\u043d\u043e\u0432\u043d\u043e\u0439 \u043a\u043b\u0430\u0441\u0441 \u0443\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0438\u044f Knowledge Graph"""
+    """Основной класс управления Knowledge Graph"""
     
     def __init__(self):
         self.neo4j_graph = None
@@ -59,13 +58,13 @@ class KnowledgeGraphManager:
         self.ner_pipeline = None
         self.relation_extractor = None
         
-        # \u0418\u043d\u0438\u0446\u0438\u0430\u043b\u0438\u0437\u0430\u0446\u0438\u044f
+        # Инициализация
         self._init_neo4j()
         self._init_nlp_models()
         self._setup_constraints()
     
     def _init_neo4j(self):
-        """\u0418\u043d\u0438\u0446\u0438\u0430\u043b\u0438\u0437\u0430\u0446\u0438\u044f \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u044f \u043a Neo4j"""
+        """Инициализация подключения к Neo4j"""
         try:
             # LangChain Neo4j Graph
             self.neo4j_graph = Neo4jGraph(
@@ -89,16 +88,16 @@ class KnowledgeGraphManager:
             raise
     
     def _init_nlp_models(self):
-        """\u0418\u043d\u0438\u0446\u0438\u0430\u043b\u0438\u0437\u0430\u0446\u0438\u044f NLP \u043c\u043e\u0434\u0435\u043b\u0435\u0439 \u0434\u043b\u044f \u0438\u0437\u0432\u043b\u0435\u0447\u0435\u043d\u0438\u044f \u0441\u0443\u0449\u043d\u043e\u0441\u0442\u0435\u0439"""
+        """Инициализация NLP моделей для извлечения сущностей"""
         try:
-            # \u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430 spaCy \u043c\u043e\u0434\u0435\u043b\u0438 \u0434\u043b\u044f \u0443\u043a\u0440\u0430\u0438\u043d\u0441\u043a\u043e\u0433\u043e \u0438 \u0440\u0443\u0441\u0441\u043a\u043e\u0433\u043e \u044f\u0437\u044b\u043a\u043e\u0432
+            # Загрузка spaCy модели для украинского и русского языков
             try:
                 self.nlp_model = spacy.load("xx_ent_wiki_sm")  # Multilingual model
             except OSError:
                 logger.warning("spaCy multilingual model not found, using basic processing")
                 self.nlp_model = None
             
-            # Transformers \u0434\u043b\u044f NER
+            # Transformers для NER
             self.ner_pipeline = pipeline(
                 "ner",
                 model="Jean-Baptiste/roberta-large-ner-english",
@@ -113,7 +112,7 @@ class KnowledgeGraphManager:
             self.ner_pipeline = None
     
     def _setup_constraints(self):
-        """\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430 \u043e\u0433\u0440\u0430\u043d\u0438\u0447\u0435\u043d\u0438\u0439 \u0438 \u0438\u043d\u0434\u0435\u043a\u0441\u043e\u0432 \u0432 Neo4j"""
+        """Настройка ограничений и индексов в Neo4j"""
         try:
             constraints = [
                 "CREATE CONSTRAINT entity_name IF NOT EXISTS FOR (e:Entity) REQUIRE e.name IS UNIQUE",
@@ -134,12 +133,12 @@ class KnowledgeGraphManager:
             logger.error(f"Error setting up constraints: {e}")
     
     def extract_entities_from_text(self, text: str, document_type: str = "general") -> List[KnowledgeEntity]:
-        """\u0418\u0437\u0432\u043b\u0435\u0447\u0435\u043d\u0438\u0435 \u0441\u0443\u0449\u043d\u043e\u0441\u0442\u0435\u0439 \u0438\u0437 \u0442\u0435\u043a\u0441\u0442\u0430"""
+        """Извлечение сущностей из текста"""
         entities = []
         
         try:
             if self.nlp_model:
-                # \u0418\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0435\u043c spaCy
+                # Используем spaCy
                 doc = self.nlp_model(text)
                 for ent in doc.ents:
                     entity = KnowledgeEntity(
@@ -157,7 +156,7 @@ class KnowledgeGraphManager:
                     entities.append(entity)
             
             if self.ner_pipeline:
-                # \u0418\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0435\u043c transformers NER
+                # Используем transformers NER
                 ner_results = self.ner_pipeline(text)
                 for result in ner_results:
                     entity = KnowledgeEntity(
@@ -174,7 +173,7 @@ class KnowledgeGraphManager:
                     )
                     entities.append(entity)
             
-            # \u0424\u0438\u043b\u044c\u0442\u0440\u0430\u0446\u0438\u044f \u0434\u0443\u0431\u043b\u0438\u043a\u0430\u0442\u043e\u0432
+            # Фильтрация дубликатов
             unique_entities = {}
             for entity in entities:
                 key = f"{entity.name.lower()}_{entity.type}"
@@ -188,27 +187,27 @@ class KnowledgeGraphManager:
             return []
     
     def extract_relations_from_text(self, text: str, entities: List[KnowledgeEntity]) -> List[KnowledgeRelation]:
-        """\u0418\u0437\u0432\u043b\u0435\u0447\u0435\u043d\u0438\u0435 \u043e\u0442\u043d\u043e\u0448\u0435\u043d\u0438\u0439 \u043c\u0435\u0436\u0434\u0443 \u0441\u0443\u0449\u043d\u043e\u0441\u0442\u044f\u043c\u0438"""
+        """Извлечение отношений между сущностями"""
         relations = []
         
         try:
-            # \u041f\u0440\u043e\u0441\u0442\u044b\u0435 \u043f\u0440\u0430\u0432\u0438\u043b\u0430 \u0438\u0437\u0432\u043b\u0435\u0447\u0435\u043d\u0438\u044f \u043e\u0442\u043d\u043e\u0448\u0435\u043d\u0438\u0439
+            # Простые правила извлечения отношений
             entity_names = [e.name.lower() for e in entities]
             text_lower = text.lower()
             
-            # \u041f\u043e\u0438\u0441\u043a \u043f\u0430\u0442\u0442\u0435\u0440\u043d\u043e\u0432 \u043e\u0442\u043d\u043e\u0448\u0435\u043d\u0438\u0439
+            # Поиск паттернов отношений
             relation_patterns = {
-                "IS_A": ["\u0454", "\u044f\u0432\u043b\u044f\u0454\u0442\u044c\u0441\u044f", "is a", "is an"],
-                "PART_OF": ["\u0447\u0430\u0441\u0442\u0438\u043d\u0430", "\u0447\u0430\u0441\u0442\u0438\u043d\u043e\u044e", "part of", "belongs to"],
-                "LOCATED_IN": ["\u0437\u043d\u0430\u0445\u043e\u0434\u0438\u0442\u044c\u0441\u044f \u0432", "\u0440\u043e\u0437\u0442\u0430\u0448\u043e\u0432\u0430\u043d\u0438\u0439 \u0432", "located in", "in"],
-                "WORKS_FOR": ["\u043f\u0440\u0430\u0446\u044e\u0454 \u0432", "\u043f\u0440\u0430\u0446\u044e\u0454 \u0434\u043b\u044f", "works for", "works at"],
-                "RELATED_TO": ["\u043f\u043e\u0432'\u044f\u0437\u0430\u043d\u0438\u0439 \u0437", "\u043f\u043e\u0432'\u044f\u0437\u0430\u043d\u0430 \u0437", "related to", "associated with"]
+                "IS_A": ["є", "являється", "is a", "is an"],
+                "PART_OF": ["частина", "частиною", "part of", "belongs to"],
+                "LOCATED_IN": ["знаходиться в", "розташований в", "located in", "in"],
+                "WORKS_FOR": ["працює в", "працює для", "works for", "works at"],
+                "RELATED_TO": ["пов'язаний з", "пов'язана з", "related to", "associated with"]
             }
             
             for relation_type, patterns in relation_patterns.items():
                 for pattern in patterns:
                     if pattern in text_lower:
-                        # \u0418\u0449\u0435\u043c \u0441\u0443\u0449\u043d\u043e\u0441\u0442\u0438 \u0432\u043e\u043a\u0440\u0443\u0433 \u043f\u0430\u0442\u0442\u0435\u0440\u043d\u0430
+                        # Ищем сущности вокруг паттерна
                         for i, source_entity in enumerate(entities):
                             for j, target_entity in enumerate(entities):
                                 if i != j:
@@ -233,7 +232,7 @@ class KnowledgeGraphManager:
             return []
     
     def create_document_node(self, document_path: str, document_type: str, metadata: Dict[str, Any]) -> str:
-        """\u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u0443\u0437\u043b\u0430 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0430"""
+        """Создание узла документа"""
         try:
             document_id = os.path.basename(document_path)
             
@@ -261,7 +260,7 @@ class KnowledgeGraphManager:
             return ""
     
     def create_entity_node(self, entity: KnowledgeEntity) -> bool:
-        """\u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u0443\u0437\u043b\u0430 \u0441\u0443\u0449\u043d\u043e\u0441\u0442\u0438"""
+        """Создание узла сущности"""
         try:
             cypher_query = """
             MERGE (e:Entity {name: $name, type: $type})
@@ -287,7 +286,7 @@ class KnowledgeGraphManager:
             return False
     
     def create_relation(self, relation: KnowledgeRelation) -> bool:
-        """\u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u043e\u0442\u043d\u043e\u0448\u0435\u043d\u0438\u044f \u043c\u0435\u0436\u0434\u0443 \u0441\u0443\u0449\u043d\u043e\u0441\u0442\u044f\u043c\u0438"""
+        """Создание отношения между сущностями"""
         try:
             cypher_query = """
             MATCH (source:Entity {name: $source})
@@ -316,7 +315,7 @@ class KnowledgeGraphManager:
             return False
     
     def link_entities_to_document(self, document_id: str, entities: List[KnowledgeEntity]) -> bool:
-        """\u0421\u0432\u044f\u0437\u044b\u0432\u0430\u043d\u0438\u0435 \u0441\u0443\u0449\u043d\u043e\u0441\u0442\u0435\u0439 \u0441 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u043c"""
+        """Связывание сущностей с документом"""
         try:
             for entity in entities:
                 cypher_query = """
@@ -344,11 +343,11 @@ class KnowledgeGraphManager:
             return False
     
     def process_document_for_graph(self, document_path: str, content: str, document_type: str = "general") -> bool:
-        """\u041e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0430 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0430 \u0434\u043b\u044f \u0434\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u0438\u044f \u0432 knowledge graph"""
+        """Обработка документа для добавления в knowledge graph"""
         try:
             logger.info(f"Processing document for graph: {document_path}")
             
-            # \u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u0443\u0437\u043b\u0430 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0430
+            # Создание узла документа
             document_id = self.create_document_node(
                 document_path, 
                 document_type,
@@ -358,27 +357,27 @@ class KnowledgeGraphManager:
             if not document_id:
                 return False
             
-            # \u0418\u0437\u0432\u043b\u0435\u0447\u0435\u043d\u0438\u0435 \u0441\u0443\u0449\u043d\u043e\u0441\u0442\u0435\u0439
+            # Извлечение сущностей
             entities = self.extract_entities_from_text(content, document_type)
             
             if not entities:
                 logger.warning(f"No entities extracted from {document_path}")
                 return True
             
-            # \u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u0443\u0437\u043b\u043e\u0432 \u0441\u0443\u0449\u043d\u043e\u0441\u0442\u0435\u0439
+            # Создание узлов сущностей
             for entity in entities:
                 entity.source_document = document_id
                 self.create_entity_node(entity)
             
-            # \u0418\u0437\u0432\u043b\u0435\u0447\u0435\u043d\u0438\u0435 \u043e\u0442\u043d\u043e\u0448\u0435\u043d\u0438\u0439
+            # Извлечение отношений
             relations = self.extract_relations_from_text(content, entities)
             
-            # \u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u043e\u0442\u043d\u043e\u0448\u0435\u043d\u0438\u0439
+            # Создание отношений
             for relation in relations:
                 relation.source_document = document_id
                 self.create_relation(relation)
             
-            # \u0421\u0432\u044f\u0437\u044b\u0432\u0430\u043d\u0438\u0435 \u0441\u0443\u0449\u043d\u043e\u0441\u0442\u0435\u0439 \u0441 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u043c
+            # Связывание сущностей с документом
             self.link_entities_to_document(document_id, entities)
             
             logger.info(f"Added {len(entities)} entities and {len(relations)} relations to graph")
@@ -389,9 +388,9 @@ class KnowledgeGraphManager:
             return False
     
     def query_knowledge_graph(self, query: str) -> List[Dict[str, Any]]:
-        """\u0412\u044b\u043f\u043e\u043b\u043d\u0435\u043d\u0438\u0435 \u0437\u0430\u043f\u0440\u043e\u0441\u0430 \u043a knowledge graph"""
+        """Выполнение запроса к knowledge graph"""
         try:
-            # \u041f\u0440\u043e\u0441\u0442\u043e\u0439 \u043f\u043e\u0438\u0441\u043a \u0441\u0443\u0449\u043d\u043e\u0441\u0442\u0435\u0439
+            # Простой поиск сущностей
             cypher_query = """
             MATCH (e:Entity)
             WHERE toLower(e.name) CONTAINS toLower($query)
@@ -419,9 +418,9 @@ class KnowledgeGraphManager:
             return []
     
     def get_context_for_query(self, query: str, max_context_length: int = 2000) -> str:
-        """\u041f\u043e\u043b\u0443\u0447\u0435\u043d\u0438\u0435 \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442\u0430 \u0438\u0437 knowledge graph \u0434\u043b\u044f \u0437\u0430\u043f\u0440\u043e\u0441\u0430"""
+        """Получение контекста из knowledge graph для запроса"""
         try:
-            # \u041f\u043e\u0438\u0441\u043a \u0440\u0435\u043b\u0435\u0432\u0430\u043d\u0442\u043d\u044b\u0445 \u0441\u0443\u0449\u043d\u043e\u0441\u0442\u0435\u0439 \u0438 \u043e\u0442\u043d\u043e\u0448\u0435\u043d\u0438\u0439
+            # Поиск релевантных сущностей и отношений
             results = self.query_knowledge_graph(query)
             
             context_parts = []
@@ -430,16 +429,16 @@ class KnowledgeGraphManager:
             for result in results:
                 entity = result['entity']
                 
-                # \u0424\u043e\u0440\u043c\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435 \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442\u043d\u043e\u0439 \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u0438
-                context_part = f"\u0421\u0443\u0442\u043d\u0456\u0441\u0442\u044c: {entity.get('name', '')} (\u0422\u0438\u043f: {entity.get('type', '')})"
+                # Формирование контекстной информации
+                context_part = f"Сутність: {entity.get('name', '')} (Тип: {entity.get('type', '')})"
                 
                 if result['relation'] and result['related_entity']:
                     relation = result['relation']
                     related = result['related_entity']
                     context_part += f"\
-\u041f\u043e\u0432'\u044f\u0437\u0430\u043d\u043e \u0447\u0435\u0440\u0435\u0437: {relation.get('type', '')} \u0437 {related.get('name', '')}"
+Пов'язано через: {relation.get('type', '')} з {related.get('name', '')}"
                 
-                # \u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 \u0434\u043b\u0438\u043d\u044b
+                # Проверка длины
                 if current_length + len(context_part) > max_context_length:
                     break
                 
@@ -455,26 +454,26 @@ class KnowledgeGraphManager:
             return ""
     
     def get_graph_statistics(self) -> Dict[str, Any]:
-        """\u041f\u043e\u043b\u0443\u0447\u0435\u043d\u0438\u0435 \u0441\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0438 knowledge graph"""
+        """Получение статистики knowledge graph"""
         try:
             stats = {}
             
-            # \u041a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e \u0443\u0437\u043b\u043e\u0432
+            # Количество узлов
             node_count_query = "MATCH (n) RETURN count(n) as count"
             node_result = self.neo4j_graph.query(node_count_query)
             stats["total_nodes"] = node_result[0]["count"] if node_result else 0
             
-            # \u041a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e \u043e\u0442\u043d\u043e\u0448\u0435\u043d\u0438\u0439
+            # Количество отношений
             rel_count_query = "MATCH ()-[r]->() RETURN count(r) as count"
             rel_result = self.neo4j_graph.query(rel_count_query)
             stats["total_relationships"] = rel_result[0]["count"] if rel_result else 0
             
-            # \u0422\u0438\u043f\u044b \u0441\u0443\u0449\u043d\u043e\u0441\u0442\u0435\u0439
+            # Типы сущностей
             entity_types_query = "MATCH (e:Entity) RETURN DISTINCT e.type as type, count(e) as count"
             entity_types_result = self.neo4j_graph.query(entity_types_query)
             stats["entity_types"] = {r["type"]: r["count"] for r in entity_types_result}
             
-            # \u0422\u0438\u043f\u044b \u043e\u0442\u043d\u043e\u0448\u0435\u043d\u0438\u0439
+            # Типы отношений
             rel_types_query = "MATCH ()-[r:RELATED_TO]->() RETURN DISTINCT r.type as type, count(r) as count"
             rel_types_result = self.neo4j_graph.query(rel_types_query)
             stats["relationship_types"] = {r["type"]: r["count"] for r in rel_types_result}
@@ -486,7 +485,7 @@ class KnowledgeGraphManager:
             return {}
     
     def create_qa_chain(self, llm):
-        """\u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 QA \u0446\u0435\u043f\u043e\u0447\u043a\u0438 \u0434\u043b\u044f \u0440\u0430\u0431\u043e\u0442\u044b \u0441 knowledge graph"""
+        """Создание QA цепочки для работы с knowledge graph"""
         try:
             qa_chain = GraphQAChain.from_llm(
                 llm=llm,
@@ -499,13 +498,13 @@ class KnowledgeGraphManager:
             logger.error(f"Error creating QA chain: {e}")
             return None
 
-# \u0424\u0443\u043d\u043a\u0446\u0438\u0438 \u0434\u043b\u044f \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u044f \u0432 \u0434\u0440\u0443\u0433\u0438\u0445 \u043c\u043e\u0434\u0443\u043b\u044f\u0445
+# Функции для использования в других модулях
 def create_knowledge_graph_manager() -> KnowledgeGraphManager:
-    """\u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u044d\u043a\u0437\u0435\u043c\u043f\u043b\u044f\u0440\u0430 \u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440\u0430 knowledge graph"""
+    """Создание экземпляра менеджера knowledge graph"""
     return KnowledgeGraphManager()
 
 def process_documents_for_graph(documents, content_getter):
-    """\u041e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0430 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u0432 \u0434\u043b\u044f knowledge graph"""
+    """Обработка документов для knowledge graph"""
     kg_manager = create_knowledge_graph_manager()
     
     processed_count = 0

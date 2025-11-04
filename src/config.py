@@ -1,7 +1,6 @@
-
 """
-\u041a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u043e\u043d\u043d\u044b\u0439 \u0444\u0430\u0439\u043b AI-\u0430\u0433\u0435\u043d\u0442\u0430
-\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 \u0434\u043b\u044f Mistral AI 7B, GPU, \u043f\u0443\u0442\u0435\u0439 \u0438 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440\u043e\u0432 \u043e\u0431\u0443\u0447\u0435\u043d\u0438\u044f
+Конфигурационный файл AI-агента
+Настройки для Mistral AI 7B, GPU, путей и параметров обучения
 """
 
 import os
@@ -11,12 +10,12 @@ from typing import Optional, List
 
 @dataclass
 class ModelConfig:
-    """\u041a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044f \u043c\u043e\u0434\u0435\u043b\u0438 Mistral AI 7B"""
+    """Конфигурация модели Mistral AI 7B"""
     model_name: str = "mistralai/Mistral-7B-Instruct-v0.3"
     cache_dir: str = "/home/ai-agent/models"
     device: str = "cuda"
     torch_dtype: str = "float16"
-    load_in_8bit: bool = True  # \u0414\u043b\u044f 8GB GPU
+    load_in_8bit: bool = True  # Для 8GB GPU
     load_in_4bit: bool = False
     trust_remote_code: bool = True
     use_cache: bool = True
@@ -28,7 +27,7 @@ class ModelConfig:
 
 @dataclass
 class TrainingConfig:
-    """\u041a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044f \u043e\u0431\u0443\u0447\u0435\u043d\u0438\u044f \u043c\u043e\u0434\u0435\u043b\u0438"""
+    """Конфигурация обучения модели"""
     learning_rate: float = 2e-5
     num_train_epochs: int = 3
     per_device_train_batch_size: int = 2
@@ -42,9 +41,9 @@ class TrainingConfig:
     save_total_limit: int = 3
     lr_scheduler_type: str = "cosine"
     optim: str = "adamw_torch"
-    fp16: bool = True  # \u0414\u043b\u044f GPU
+    fp16: bool = True  # Для GPU
     
-    # LoRA \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440\u044b \u0434\u043b\u044f \u044d\u0444\u0444\u0435\u043a\u0442\u0438\u0432\u043d\u043e\u0433\u043e \u043e\u0431\u0443\u0447\u0435\u043d\u0438\u044f
+    # LoRA параметры для эффективного обучения
     use_lora: bool = True
     lora_r: int = 16
     lora_alpha: int = 32
@@ -53,23 +52,23 @@ class TrainingConfig:
 
 @dataclass
 class DataConfig:
-    """\u041a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044f \u0434\u0430\u043d\u043d\u044b\u0445"""
+    """Конфигурация данных"""
     documents_path: str = "/home/ai-agent/documents"
     cache_path: str = "/home/ai-agent/cache"
     chunk_size: int = 1000
     chunk_overlap: int = 200
     max_file_size_mb: int = 50
     
-    # \u041f\u043e\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u043c\u044b\u0435 \u0444\u043e\u0440\u043c\u0430\u0442\u044b
+    # Поддерживаемые форматы
     supported_formats: List[str] = None
     
-    # \u0421\u043f\u0435\u0446\u0438\u0430\u043b\u0438\u0437\u0430\u0446\u0438\u044f \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u0432
+    # Специализация документов
     programming_extensions: List[str] = None
     legal_extensions: List[str] = None
 
 @dataclass
 class VectorConfig:
-    """\u041a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044f \u0432\u0435\u043a\u0442\u043e\u0440\u043d\u043e\u0439 \u0431\u0430\u0437\u044b \u0434\u0430\u043d\u043d\u044b\u0445"""
+    """Конфигурация векторной базы данных"""
     embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     chroma_host: str = "localhost"
     chroma_port: int = 8001
@@ -78,7 +77,7 @@ class VectorConfig:
 
 @dataclass
 class KnowledgeGraphConfig:
-    """\u041a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044f Neo4j Knowledge Graph"""
+    """Конфигурация Neo4j Knowledge Graph"""
     uri: str = "bolt://localhost:7687"
     user: str = "neo4j"
     password: str = "password"
@@ -86,20 +85,20 @@ class KnowledgeGraphConfig:
 
 @dataclass
 class CLIConfig:
-    """\u041a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044f CLI \u0438\u043d\u0442\u0435\u0440\u0444\u0435\u0439\u0441\u0430"""
+    """Конфигурация CLI интерфейса"""
     max_history: int = 100
     show_thinking: bool = False
     auto_save_context: bool = True
     context_file: str = "/home/ai-agent/cache/context.json"
 
 class Config:
-    """\u041e\u0441\u043d\u043e\u0432\u043d\u043e\u0439 \u043a\u043b\u0430\u0441\u0441 \u043a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u0438"""
+    """Основной класс конфигурации"""
     
     def __init__(self):
-        # \u0423\u0441\u0442\u0430\u043d\u043e\u0432\u043a\u0430 \u043f\u0443\u0442\u0435\u0439 \u0438\u0437 \u043f\u0435\u0440\u0435\u043c\u0435\u043d\u043d\u044b\u0445 \u043e\u043a\u0440\u0443\u0436\u0435\u043d\u0438\u044f
+        # Установка путей из переменных окружения
         self.setup_paths()
         
-        # \u0418\u043d\u0438\u0446\u0438\u0430\u043b\u0438\u0437\u0430\u0446\u0438\u044f \u043a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u0439
+        # Инициализация конфигураций
         self.model = ModelConfig()
         self.training = TrainingConfig()
         self.data = DataConfig()
@@ -107,30 +106,30 @@ class Config:
         self.knowledge_graph = KnowledgeGraphConfig()
         self.cli = CLIConfig()
         
-        # \u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430 \u0441\u043f\u0435\u0446\u0438\u0444\u0438\u0447\u0435\u0441\u043a\u0438\u0445 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440\u043e\u0432
+        # Настройка специфических параметров
         self.setup_specific_configs()
     
     def setup_paths(self):
-        """\u0423\u0441\u0442\u0430\u043d\u043e\u0432\u043a\u0430 \u043f\u0443\u0442\u0435\u0439 \u0438\u0437 \u043f\u0435\u0440\u0435\u043c\u0435\u043d\u043d\u044b\u0445 \u043e\u043a\u0440\u0443\u0436\u0435\u043d\u0438\u044f"""
+        """Установка путей из переменных окружения"""
         base_path = os.getenv("AGENT_HOME", "/home/ai-agent")
         
-        # \u041e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u0435 \u043f\u0443\u0442\u0435\u0439 \u0432 \u043a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044f\u0445
+        # Обновление путей в конфигурациях
         os.environ["TRANSFORMERS_CACHE"] = os.path.join(base_path, "models")
         os.environ["HF_HOME"] = os.path.join(base_path, "models")
         os.environ["XDG_CACHE_HOME"] = os.path.join(base_path, "cache")
     
     def setup_specific_configs(self):
-        """\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430 \u0441\u043f\u0435\u0446\u0438\u0444\u0438\u0447\u0435\u0441\u043a\u0438\u0445 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440\u043e\u0432"""
-        # \u041f\u043e\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u043c\u044b\u0435 \u0444\u043e\u0440\u043c\u0430\u0442\u044b \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u0432
+        """Настройка специфических параметров"""
+        # Поддерживаемые форматы документов
         self.data.supported_formats = [".pdf", ".doc", ".docx", ".txt", ".md", ".py", ".java", ".kt", ".js", ".html", ".css"]
         
-        # \u041f\u0440\u043e\u0433\u0440\u0430\u043c\u043c\u043d\u044b\u0435 \u0444\u0430\u0439\u043b\u044b
+        # Программные файлы
         self.data.programming_extensions = [".py", ".java", ".kt", ".js", ".ts", ".cpp", ".c", ".h", ".cs", ".go", ".rs", ".php", ".rb", ".swift"]
         
-        # \u042e\u0440\u0438\u0434\u0438\u0447\u0435\u0441\u043a\u0438\u0435 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b
+        # Юридические документы
         self.data.legal_extensions = [".doc", ".docx", ".pdf", ".rtf"]
         
-        # LoRA \u0446\u0435\u043b\u0435\u0432\u044b\u0435 \u043c\u043e\u0434\u0443\u043b\u0438 \u0434\u043b\u044f Mistral
+        # LoRA целевые модули для Mistral
         self.training.lora_target_modules = [
             "q_proj", "k_proj", "v_proj", "o_proj",
             "gate_proj", "up_proj", "down_proj",
@@ -138,7 +137,7 @@ class Config:
         ]
     
     def update_from_env(self):
-        """\u041e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u0435 \u043a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u0438 \u0438\u0437 \u043f\u0435\u0440\u0435\u043c\u0435\u043d\u043d\u044b\u0445 \u043e\u043a\u0440\u0443\u0436\u0435\u043d\u0438\u044f"""
+        """Обновление конфигурации из переменных окружения"""
         # Model config
         if os.getenv("MODEL_NAME"):
             self.model.model_name = os.getenv("MODEL_NAME")
@@ -166,7 +165,7 @@ class Config:
             self.vector.chroma_port = int(os.getenv("CHROMA_PORT"))
     
     def ensure_directories(self):
-        """\u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u043d\u0435\u043e\u0431\u0445\u043e\u0434\u0438\u043c\u044b\u0445 \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440\u0438\u0439"""
+        """Создание необходимых директорий"""
         directories = [
             self.model.cache_dir,
             self.data.documents_path,
@@ -179,7 +178,7 @@ class Config:
             Path(directory).mkdir(parents=True, exist_ok=True)
     
     def validate_gpu_config(self):
-        """\u0412\u0430\u043b\u0438\u0434\u0430\u0446\u0438\u044f \u043a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u0438 GPU"""
+        """Валидация конфигурации GPU"""
         if self.model.device == "cuda":
             try:
                 import torch
@@ -199,7 +198,7 @@ class Config:
                 self.model.device = "cpu"
                 self.model.load_in_8bit = False
 
-# \u0413\u043b\u043e\u0431\u0430\u043b\u044c\u043d\u044b\u0439 \u044d\u043a\u0437\u0435\u043c\u043f\u043b\u044f\u0440 \u043a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u0438
+# Глобальный экземпляр конфигурации
 config = Config()
 config.update_from_env()
 config.ensure_directories()

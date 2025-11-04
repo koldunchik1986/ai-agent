@@ -1,60 +1,59 @@
-
 #!/bin/bash
 
-# \u0423\u0441\u0442\u0430\u043d\u043e\u0432\u043e\u0447\u043d\u044b\u0439 \u0441\u043a\u0440\u0438\u043f\u0442 \u0434\u043b\u044f AI-\u0430\u0433\u0435\u043d\u0442\u0430 \u043d\u0430 \u0431\u0430\u0437\u0435 Mistral AI 7B
-# \u041f\u043e\u0434\u0434\u0435\u0440\u0436\u043a\u0430 Kali Linux, CUDA 11.8, GPU P104-100
+# Установочный скрипт для AI-агента на базе Mistral AI 7B
+# Поддержка Kali Linux, CUDA 11.8, GPU P104-100
 
 set -e
 
-echo "\ud83d\ude80 \u0423\u0441\u0442\u0430\u043d\u043e\u0432\u043a\u0430 AI-\u0430\u0433\u0435\u043d\u0442\u0430 \u043d\u0430 \u0431\u0430\u0437\u0435 Mistral AI 7B"
+echo "🚀 Установка AI-агента на базе Mistral AI 7B"
 echo "============================================"
 
-# \u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 \u043f\u0440\u0430\u0432 root
+# Проверка прав root
 if [[ $EUID -ne 0 ]]; then
-   echo "\u274c \u042d\u0442\u043e\u0442 \u0441\u043a\u0440\u0438\u043f\u0442 \u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c \u0437\u0430\u043f\u0443\u0449\u0435\u043d \u0441 \u043f\u0440\u0430\u0432\u0430\u043c\u0438 root"
-   echo "   \u0418\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439\u0442\u0435: sudo ./setup.sh"
+   echo "❌ Этот скрипт должен быть запущен с правами root"
+   echo "   Используйте: sudo ./setup.sh"
    exit 1
 fi
 
-# \u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 \u041e\u0421
+# Проверка ОС
 if ! grep -q "Kali" /etc/os-release; then
-    echo "\u26a0\ufe0f  \u041f\u0440\u0435\u0434\u0443\u043f\u0440\u0435\u0436\u0434\u0435\u043d\u0438\u0435: \u0421\u0438\u0441\u0442\u0435\u043c\u0430 \u043d\u0435 \u044f\u0432\u043b\u044f\u0435\u0442\u0441\u044f Kali Linux"
-    read -p "\u041f\u0440\u043e\u0434\u043e\u043b\u0436\u0438\u0442\u044c \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043a\u0443? (y/n): " -n 1 -r
+    echo "⚠️  Предупреждение: Система не является Kali Linux"
+    read -p "Продолжить установку? (y/n): " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         exit 1
     fi
 fi
 
-# \u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 CUDA
-echo "\ud83d\udd0d \u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 CUDA..."
+# Проверка CUDA
+echo "🔍 Проверка CUDA..."
 if ! command -v nvidia-smi &> /dev/null; then
-    echo "\u274c NVIDIA \u0434\u0440\u0430\u0439\u0432\u0435\u0440 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d. \u0423\u0441\u0442\u0430\u043d\u043e\u0432\u0438\u0442\u0435 NVIDIA \u0434\u0440\u0430\u0439\u0432\u0435\u0440\u044b:"
+    echo "❌ NVIDIA драйвер не найден. Установите NVIDIA драйверы:"
     echo "   sudo apt update"
     echo "   sudo apt install nvidia-driver-470"
     echo "   sudo reboot"
     exit 1
 fi
 
-# \u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 \u0432\u0435\u0440\u0441\u0438\u0438 CUDA
+# Проверка версии CUDA
 CUDA_VERSION=$(nvidia-smi | grep -o 'CUDA Version: [0-9]*\.[0-9]*' | grep -o '[0-9]*\.[0-9]*')
-echo "\u2705 \u041d\u0430\u0439\u0434\u0435\u043d\u0430 CUDA \u0432\u0435\u0440\u0441\u0438\u044f: $CUDA_VERSION"
+echo "✅ Найдена CUDA версия: $CUDA_VERSION"
 
 if [[ $(echo "$CUDA_VERSION < 11.8" | bc -l) -eq 1 ]]; then
-    echo "\u26a0\ufe0f  \u0420\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0443\u0435\u0442\u0441\u044f CUDA 11.8 \u0438\u043b\u0438 \u0432\u044b\u0448\u0435"
+    echo "⚠️  Рекомендуется CUDA 11.8 или выше"
 fi
 
-# \u0423\u0441\u0442\u0430\u043d\u043e\u0432\u043a\u0430 \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440\u0438\u0439
-echo "\ud83d\udcc1 \u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440\u0438\u0439..."
+# Установка директорий
+echo "📁 Создание директорий..."
 BASE_DIR="/home/sda3/ai-agent"
 mkdir -p $BASE_DIR/{models,documents,cache,logs,neo4j/{data,logs,import},chroma}
 chown -R $SUDO_USER:$SUDO_USER $BASE_DIR
-echo "\u2705 \u0414\u0438\u0440\u0435\u043a\u0442\u043e\u0440\u0438\u0438 \u0441\u043e\u0437\u0434\u0430\u043d\u044b \u0432 $BASE_DIR"
+echo "✅ Директории созданы в $BASE_DIR"
 
-# \u0423\u0441\u0442\u0430\u043d\u043e\u0432\u043a\u0430 Docker
-echo "\ud83d\udc33 \u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 Docker..."
+# Установка Docker
+echo "🐳 Проверка Docker..."
 if ! command -v docker &> /dev/null; then
-    echo "\ud83d\udce6 \u0423\u0441\u0442\u0430\u043d\u043e\u0432\u043a\u0430 Docker..."
+    echo "📦 Установка Docker..."
     apt-get update
     apt-get install -y \
         apt-transport-https \
@@ -72,27 +71,27 @@ if ! command -v docker &> /dev/null; then
     apt-get update
     apt-get install -y docker-ce docker-ce-cli containerd.io
     
-    # \u0414\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u0438\u0435 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044f \u0432 \u0433\u0440\u0443\u043f\u043f\u0443 docker
+    # Добавление пользователя в группу docker
     usermod -aG docker $SUDO_USER
-    echo "\u2705 Docker \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d. \u041f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c $SUDO_USER \u0434\u043e\u0431\u0430\u0432\u043b\u0435\u043d \u0432 \u0433\u0440\u0443\u043f\u043f\u0443 docker"
+    echo "✅ Docker установлен. Пользователь $SUDO_USER добавлен в группу docker"
 else
-    echo "\u2705 Docker \u0443\u0436\u0435 \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d"
+    echo "✅ Docker уже установлен"
 fi
 
-# \u0423\u0441\u0442\u0430\u043d\u043e\u0432\u043a\u0430 Docker Compose
+# Установка Docker Compose
 if ! command -v docker-compose &> /dev/null; then
-    echo "\ud83d\udce6 \u0423\u0441\u0442\u0430\u043d\u043e\u0432\u043a\u0430 Docker Compose..."
+    echo "📦 Установка Docker Compose..."
     curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
     chmod +x /usr/local/bin/docker-compose
-    echo "\u2705 Docker Compose \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d"
+    echo "✅ Docker Compose установлен"
 else
-    echo "\u2705 Docker Compose \u0443\u0436\u0435 \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d"
+    echo "✅ Docker Compose уже установлен"
 fi
 
-# \u0423\u0441\u0442\u0430\u043d\u043e\u0432\u043a\u0430 Docker GPU Support
-echo "\ud83c\udfae \u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430 GPU \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u043a\u0438..."
+# Установка Docker GPU Support
+echo "🎮 Настройка GPU поддержки..."
 if ! docker run --rm --gpus all nvidia/cuda:11.8-base-ubuntu20.04 nvidia-smi &> /dev/null; then
-    echo "\ud83d\udce6 \u0423\u0441\u0442\u0430\u043d\u043e\u0432\u043a\u0430 NVIDIA Container Toolkit..."
+    echo "📦 Установка NVIDIA Container Toolkit..."
     distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
     curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | apt-key add -
     curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | tee /etc/apt/sources.list.d/nvidia-docker.list
@@ -100,13 +99,13 @@ if ! docker run --rm --gpus all nvidia/cuda:11.8-base-ubuntu20.04 nvidia-smi &> 
     apt-get update
     apt-get install -y nvidia-docker2
     systemctl restart docker
-    echo "\u2705 NVIDIA Container Toolkit \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d"
+    echo "✅ NVIDIA Container Toolkit установлен"
 else
-    echo "\u2705 GPU \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u043a\u0430 \u0443\u0436\u0435 \u043d\u0430\u0441\u0442\u0440\u043e\u0435\u043d\u0430"
+    echo "✅ GPU поддержка уже настроена"
 fi
 
-# \u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u0444\u0430\u0439\u043b\u0430 \u043f\u0435\u0440\u0435\u043c\u0435\u043d\u043d\u044b\u0445 \u043e\u043a\u0440\u0443\u0436\u0435\u043d\u0438\u044f
-echo "\ud83d\udd27 \u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u043f\u0435\u0440\u0435\u043c\u0435\u043d\u043d\u044b\u0445 \u043e\u043a\u0440\u0443\u0436\u0435\u043d\u0438\u044f..."
+# Создание файла переменных окружения
+echo "🔧 Создание переменных окружения..."
 cat > /etc/environment.d/ai-agent.conf << EOF
 AGENT_HOME="/home/sda3/ai-agent"
 MODEL_CACHE_PATH="/home/sda3/ai-agent/models"
@@ -120,10 +119,10 @@ CHROMA_PORT="8001"
 CUDA_VISIBLE_DEVICES="0"
 EOF
 
-echo "\u2705 \u041f\u0435\u0440\u0435\u043c\u0435\u043d\u043d\u044b\u0435 \u043e\u043a\u0440\u0443\u0436\u0435\u043d\u0438\u044f \u0441\u043e\u0437\u0434\u0430\u043d\u044b"
+echo "✅ Переменные окружения созданы"
 
-# \u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430 \u0441\u0438\u0441\u0442\u0435\u043c\u043d\u044b\u0445 \u043b\u0438\u043c\u0438\u0442\u043e\u0432
-echo "\u2699\ufe0f  \u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430 \u0441\u0438\u0441\u0442\u0435\u043c\u043d\u044b\u0445 \u043b\u0438\u043c\u0438\u0442\u043e\u0432..."
+# Настройка системных лимитов
+echo "⚙️  Настройка системных лимитов..."
 cat > /etc/security/limits.d/ai-agent.conf << EOF
 $SUDO_USER soft nofile 65536
 $SUDO_USER hard nofile 65536
@@ -131,10 +130,10 @@ $SUDO_USER soft nproc 32768
 $SUDO_USER hard nproc 32768
 EOF
 
-echo "\u2705 \u0421\u0438\u0441\u0442\u0435\u043c\u043d\u044b\u0435 \u043b\u0438\u043c\u0438\u0442\u044b \u043d\u0430\u0441\u0442\u0440\u043e\u0435\u043d\u044b"
+echo "✅ Системные лимиты настроены"
 
-# \u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u0441\u0435\u0440\u0432\u0438\u0441\u043d\u043e\u0433\u043e \u0444\u0430\u0439\u043b\u0430
-echo "\ud83d\udd27 \u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 systemd \u0441\u0435\u0440\u0432\u0438\u0441\u0430..."
+# Создание сервисного файла
+echo "🔧 Создание systemd сервиса..."
 cat > /etc/systemd/system/ai-agent.service << EOF
 [Unit]
 Description=AI Agent Service
@@ -155,55 +154,55 @@ EOF
 
 systemctl daemon-reload
 systemctl enable ai-agent
-echo "\u2705 systemd \u0441\u0435\u0440\u0432\u0438\u0441 \u0441\u043e\u0437\u0434\u0430\u043d"
+echo "✅ systemd сервис создан"
 
-# \u0423\u0441\u0442\u0430\u043d\u043e\u0432\u043a\u0430 Python \u0437\u0430\u0432\u0438\u0441\u0438\u043c\u043e\u0441\u0442\u0435\u0439 \u0434\u043b\u044f \u0445\u043e\u0441\u0442\u0430 (\u0434\u043b\u044f \u0440\u0430\u0437\u0440\u0430\u0431\u043e\u0442\u043a\u0438)
-echo "\ud83d\udc0d \u0423\u0441\u0442\u0430\u043d\u043e\u0432\u043a\u0430 Python \u0437\u0430\u0432\u0438\u0441\u0438\u043c\u043e\u0441\u0442\u0435\u0439..."
+# Установка Python зависимостей для хоста (для разработки)
+echo "🐍 Установка Python зависимостей..."
 if ! command -v python3 &> /dev/null; then
     apt-get install -y python3 python3-pip python3-venv
 fi
 
-# \u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u0432\u0438\u0440\u0442\u0443\u0430\u043b\u044c\u043d\u043e\u0433\u043e \u043e\u043a\u0440\u0443\u0436\u0435\u043d\u0438\u044f \u0434\u043b\u044f \u0440\u0430\u0437\u0440\u0430\u0431\u043e\u0442\u043a\u0438
+# Создание виртуального окружения для разработки
 if [ ! -d "venv" ]; then
     python3 -m venv venv
     source venv/bin/activate
     pip install --upgrade pip
     pip install -r requirements.txt
-    echo "\u2705 \u0412\u0438\u0440\u0442\u0443\u0430\u043b\u044c\u043d\u043e\u0435 \u043e\u043a\u0440\u0443\u0436\u0435\u043d\u0438\u0435 \u0441\u043e\u0437\u0434\u0430\u043d\u043e"
+    echo "✅ Виртуальное окружение создано"
 else
-    echo "\u2705 \u0412\u0438\u0440\u0442\u0443\u0430\u043b\u044c\u043d\u043e\u0435 \u043e\u043a\u0440\u0443\u0436\u0435\u043d\u0438\u0435 \u0443\u0436\u0435 \u0441\u0443\u0449\u0435\u0441\u0442\u0432\u0443\u0435\u0442"
+    echo "✅ Виртуальное окружение уже существует"
 fi
 
 echo ""
-echo "\ud83c\udf89 \u0423\u0441\u0442\u0430\u043d\u043e\u0432\u043a\u0430 \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u0430!"
+echo "🎉 Установка завершена!"
 echo "======================"
 echo ""
-echo "\ud83d\udccb \u0421\u043b\u0435\u0434\u0443\u044e\u0449\u0438\u0435 \u0448\u0430\u0433\u0438:"
-echo "1. \u041f\u0435\u0440\u0435\u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u0435 \u0441\u0438\u0441\u0442\u0435\u043c\u0443 \u0438\u043b\u0438 \u0432\u044b\u043f\u043e\u043b\u043d\u0438\u0442\u0435:"
+echo "📋 Следующие шаги:"
+echo "1. Перезагрузите систему или выполните:"
 echo "   source /etc/environment.d/ai-agent.conf"
 echo ""
-echo "2. \u0417\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u0435 \u0441\u0435\u0440\u0432\u0438\u0441\u044b:"
+echo "2. Запустите сервисы:"
 echo "   sudo systemctl start ai-agent"
-echo "   \u0438\u043b\u0438"
+echo "   или"
 echo "   docker-compose up -d"
 echo ""
-echo "3. \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u0441\u0442\u0430\u0442\u0443\u0441:"
+echo "3. Проверьте статус:"
 echo "   docker-compose ps"
 echo ""
-echo "4. \u0417\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u0435 CLI \u0438\u043d\u0442\u0435\u0440\u0444\u0435\u0439\u0441:"
+echo "4. Запустите CLI интерфейс:"
 echo "   docker-compose exec ai-agent python -m src.cli_interface"
 echo ""
-echo "5. \u0414\u043b\u044f \u0440\u0430\u0437\u0440\u0430\u0431\u043e\u0442\u043a\u0438 \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439\u0442\u0435 \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u043e\u0435 \u043e\u043a\u0440\u0443\u0436\u0435\u043d\u0438\u0435:"
+echo "5. Для разработки используйте локальное окружение:"
 echo "   source venv/bin/activate"
 echo "   python -m src.cli_interface"
 echo ""
-echo "\ud83d\udcc1 \u0414\u0438\u0440\u0435\u043a\u0442\u043e\u0440\u0438\u0438:"
-echo "   \u041c\u043e\u0434\u0435\u043b\u0438: $BASE_DIR/models"
-echo "   \u0414\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b: $BASE_DIR/documents"
-echo "   \u041a\u044d\u0448: $BASE_DIR/cache"
+echo "📁 Директории:"
+echo "   Модели: $BASE_DIR/models"
+echo "   Документы: $BASE_DIR/documents"
+echo "   Кэш: $BASE_DIR/cache"
 echo ""
-echo "\ud83c\udf10 Web \u0438\u043d\u0442\u0435\u0440\u0444\u0435\u0439\u0441\u044b:"
+echo "🌐 Web интерфейсы:"
 echo "   Neo4j: http://localhost:7474 (neo4j/password)"
 echo "   Chroma: http://localhost:8001"
 echo ""
-echo "\ud83d\udcd6 \u0414\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0430\u0446\u0438\u044f: docs/README.md"
+echo "📖 Документация: docs/README.md"

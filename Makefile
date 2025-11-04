@@ -1,202 +1,174 @@
-Makefile \u0434\u043b\u044f AI-\u0430\u0433\u0435\u043d\u0442\u0430 \u043d\u0430 \u0431\u0430\u0437\u0435 Mistral AI 7B
-
+# Makefile для AI-агента на базе Mistral AI 7B
+ 
 .PHONY: help install start stop restart logs clean test health backup restore status
-
-
-\u0426\u0432\u0435\u0442\u0430 \u0434\u043b\u044f \u0432\u044b\u0432\u043e\u0434\u0430
-
+ 
+# Цвета для вывода
 RED=\033[0;31m
 GREEN=\033[0;32m
 YELLOW=\033[1;33m
 BLUE=\033[0;34m
 NC=\033[0m # No Color
-
-
-\u041f\u0435\u0440\u0435\u043c\u0435\u043d\u043d\u044b\u0435
-
+ 
+# Переменные
 COMPOSE_FILE=docker-compose.yml
 BACKUP_DIR=/home/sda3/backups
 PROJECT_NAME=mistral-ai-agent
-
-
-help: ## \u041f\u043e\u043a\u0430\u0437\u0430\u0442\u044c \u0441\u043f\u0440\u0430\u0432\u043a\u0443
-	@echo "$(BLUE)AI-\u0430\u0433\u0435\u043d\u0442 \u043d\u0430 \u0431\u0430\u0437\u0435 Mistral AI 7B$(NC)"
-	@echo "$(YELLOW)\u0414\u043e\u0441\u0442\u0443\u043f\u043d\u044b\u0435 \u043a\u043e\u043c\u0430\u043d\u0434\u044b:$(NC)"
+ 
+help: ## Показать справку
+	@echo "$(BLUE)AI-агент на базе Mistral AI 7B$(NC)"
+	@echo "$(YELLOW)Доступные команды:$(NC)"
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  $(GREEN)%-15s$(NC) %s\
 ", $$1, $$2}' $(MAKEFILE_LIST)
-
-
-install: ## \u0423\u0441\u0442\u0430\u043d\u043e\u0432\u043a\u0430 \u043f\u0440\u043e\u0435\u043a\u0442\u0430
-	@echo "$(BLUE)\ud83d\ude80 \u0423\u0441\u0442\u0430\u043d\u043e\u0432\u043a\u0430 AI-\u0430\u0433\u0435\u043d\u0442\u0430...$(NC)"
+ 
+install: ## Установка проекта
+	@echo "$(BLUE)🚀 Установка AI-агента...$(NC)"
 	@sudo ./scripts/setup.sh
-	@echo "$(GREEN)\u2705 \u0423\u0441\u0442\u0430\u043d\u043e\u0432\u043a\u0430 \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u0430!$(NC)"
-
-
-start: ## \u0417\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u044c \u0432\u0441\u0435 \u0441\u0435\u0440\u0432\u0438\u0441\u044b
-	@echo "$(BLUE)\ud83d\udc33 \u0417\u0430\u043f\u0443\u0441\u043a \u0441\u0435\u0440\u0432\u0438\u0441\u043e\u0432...$(NC)"
+	@echo "$(GREEN)✅ Установка завершена!$(NC)"
+ 
+start: ## Запустить все сервисы
+	@echo "$(BLUE)🐳 Запуск сервисов...$(NC)"
 	@./scripts/run.sh start
-	@echo "$(GREEN)\u2705 \u0421\u0435\u0440\u0432\u0438\u0441\u044b \u0437\u0430\u043f\u0443\u0449\u0435\u043d\u044b$(NC)"
-
-
-stop: ## \u041e\u0441\u0442\u0430\u043d\u043e\u0432\u0438\u0442\u044c \u0432\u0441\u0435 \u0441\u0435\u0440\u0432\u0438\u0441\u044b
-	@echo "$(BLUE)\ud83d\uded1 \u041e\u0441\u0442\u0430\u043d\u043e\u0432\u043a\u0430 \u0441\u0435\u0440\u0432\u0438\u0441\u043e\u0432...$(NC)"
+	@echo "$(GREEN)✅ Сервисы запущены$(NC)"
+ 
+stop: ## Остановить все сервисы
+	@echo "$(BLUE)🛑 Остановка сервисов...$(NC)"
 	@./scripts/run.sh stop
-	@echo "$(GREEN)\u2705 \u0421\u0435\u0440\u0432\u0438\u0441\u044b \u043e\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d\u044b$(NC)"
-
-
-restart: stop start ## \u041f\u0435\u0440\u0435\u0437\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u044c \u0441\u0435\u0440\u0432\u0438\u0441\u044b
-
-
-logs: ## \u041f\u043e\u043a\u0430\u0437\u0430\u0442\u044c \u043b\u043e\u0433\u0438 \u0441\u0435\u0440\u0432\u0438\u0441\u043e\u0432
-	@echo "$(BLUE)\ud83d\udccb \u041b\u043e\u0433\u0438 \u0441\u0435\u0440\u0432\u0438\u0441\u043e\u0432:$(NC)"
+	@echo "$(GREEN)✅ Сервисы остановлены$(NC)"
+ 
+restart: stop start ## Перезапустить сервисы
+ 
+logs: ## Показать логи сервисов
+	@echo "$(BLUE)📋 Логи сервисов:$(NC)"
 	@./scripts/run.sh logs
-
-
-cli: ## \u0417\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u044c CLI \u0438\u043d\u0442\u0435\u0440\u0444\u0435\u0439\u0441
-	@echo "$(BLUE)\ud83d\udcac \u0417\u0430\u043f\u0443\u0441\u043a CLI \u0438\u043d\u0442\u0435\u0440\u0444\u0435\u0439\u0441\u0430...$(NC)"
+ 
+cli: ## Запустить CLI интерфейс
+	@echo "$(BLUE)💬 Запуск CLI интерфейса...$(NC)"
 	@./scripts/run.sh cli
-
-
-dev: ## \u0417\u0430\u043f\u0443\u0441\u043a \u0432 \u0440\u0435\u0436\u0438\u043c\u0435 \u0440\u0430\u0437\u0440\u0430\u0431\u043e\u0442\u043a\u0438
-	@echo "$(BLUE)\ud83d\udd27 \u0417\u0430\u043f\u0443\u0441\u043a \u0432 \u0440\u0435\u0436\u0438\u043c\u0435 \u0440\u0430\u0437\u0440\u0430\u0431\u043e\u0442\u043a\u0438...$(NC)"
+ 
+dev: ## Запуск в режиме разработки
+	@echo "$(BLUE)🔧 Запуск в режиме разработки...$(NC)"
 	@./scripts/run.sh dev
-
-
-health: ## \u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 \u0437\u0434\u043e\u0440\u043e\u0432\u044c\u044f \u0441\u0438\u0441\u0442\u0435\u043c\u044b
-	@echo "$(BLUE)\ud83c\udfe5 \u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 \u0437\u0434\u043e\u0440\u043e\u0432\u044c\u044f \u0441\u0438\u0441\u0442\u0435\u043c\u044b...$(NC)"
+ 
+health: ## Проверка здоровья системы
+	@echo "$(BLUE)🏥 Проверка здоровья системы...$(NC)"
 	@./scripts/run.sh health
-
-
-status: ## \u041f\u043e\u043a\u0430\u0437\u0430\u0442\u044c \u0441\u0442\u0430\u0442\u0443\u0441 \u0432\u0441\u0435\u0445 \u0441\u0435\u0440\u0432\u0438\u0441\u043e\u0432
-	@echo "$(BLUE)\ud83d\udcca \u0421\u0442\u0430\u0442\u0443\u0441 \u0441\u0435\u0440\u0432\u0438\u0441\u043e\u0432:$(NC)"
+ 
+status: ## Показать статус всех сервисов
+	@echo "$(BLUE)📊 Статус сервисов:$(NC)"
 	@docker-compose ps
 	@echo ""
-	@echo "$(BLUE)GPU \u0441\u0442\u0430\u0442\u0443\u0441:$(NC)"
-	@nvidia-smi --query-gpu=name,memory.used,memory.total,temperature.gpu --format=csv,noheader,nounits 2>/dev/null || echo "$(YELLOW)GPU \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d$(NC)"
-
-
-test: ## \u0417\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u044c \u0442\u0435\u0441\u0442\u044b
-	@echo "$(BLUE)\ud83e\uddea \u0417\u0430\u043f\u0443\u0441\u043a \u0442\u0435\u0441\u0442\u043e\u0432...$(NC)"
+	@echo "$(BLUE)GPU статус:$(NC)"
+	@nvidia-smi --query-gpu=name,memory.used,memory.total,temperature.gpu --format=csv,noheader,nounits 2>/dev/null || echo "$(YELLOW)GPU не найден$(NC)"
+ 
+test: ## Запустить тесты
+	@echo "$(BLUE)🧪 Запуск тестов...$(NC)"
 	@if [ ! -d "tests" ]; then \
-		echo "$(YELLOW)\u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440\u0438\u0438 \u0442\u0435\u0441\u0442\u043e\u0432...$(NC)"; \
+		echo "$(YELLOW)Создание директории тестов...$(NC)"; \
 		mkdir -p tests; \
 	fi
-	@python -m pytest tests/ -v || echo "$(YELLOW)\u0422\u0435\u0441\u0442\u044b \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u044b \u0438\u043b\u0438 \u043d\u0435 \u043f\u0440\u043e\u0448\u043b\u0438$(NC)"
-
-
-clean: ## \u041e\u0447\u0438\u0441\u0442\u043a\u0430 \u043a\u044d\u0448\u0430 \u0438 \u0432\u0440\u0435\u043c\u0435\u043d\u043d\u044b\u0445 \u0444\u0430\u0439\u043b\u043e\u0432
-	@echo "$(BLUE)\ud83e\uddf9 \u041e\u0447\u0438\u0441\u0442\u043a\u0430...$(NC)"
+	@python -m pytest tests/ -v || echo "$(YELLOW)Тесты не найдены или не прошли$(NC)"
+ 
+clean: ## Очистка кэша и временных файлов
+	@echo "$(BLUE)🧹 Очистка...$(NC)"
 	@docker system prune -f
 	@docker volume prune -f
 	@find . -name "*.pyc" -delete
 	@find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
-	@echo "$(GREEN)\u2705 \u041e\u0447\u0438\u0441\u0442\u043a\u0430 \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u0430$(NC)"
-
-
-build: ## \u041f\u0435\u0440\u0435\u0441\u043e\u0431\u0440\u0430\u0442\u044c Docker \u043e\u0431\u0440\u0430\u0437\u044b
-	@echo "$(BLUE)\ud83d\udd28 \u041f\u0435\u0440\u0435\u0441\u0431\u043e\u0440\u043a\u0430 Docker \u043e\u0431\u0440\u0430\u0437\u043e\u0432...$(NC)"
+	@echo "$(GREEN)✅ Очистка завершена$(NC)"
+ 
+build: ## Пересобрать Docker образы
+	@echo "$(BLUE)🔨 Пересборка Docker образов...$(NC)"
 	@docker-compose build --no-cache
-	@echo "$(GREEN)\u2705 \u041e\u0431\u0440\u0430\u0437\u044b \u043f\u0435\u0440\u0435\u0441\u043e\u0431\u0440\u0430\u043d\u044b$(NC)"
-
-
-pull: ## \u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u043e\u0431\u0440\u0430\u0437\u044b
-	@echo "$(BLUE)\ud83d\udce5 \u041e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u0435 Docker \u043e\u0431\u0440\u0430\u0437\u043e\u0432...$(NC)"
+	@echo "$(GREEN)✅ Образы пересобраны$(NC)"
+ 
+pull: ## Обновить образы
+	@echo "$(BLUE)📥 Обновление Docker образов...$(NC)"
 	@docker-compose pull
-	@echo "$(GREEN)\u2705 \u041e\u0431\u0440\u0430\u0437\u044b \u043e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u044b$(NC)
-
-
-backup: ## \u0421\u043e\u0437\u0434\u0430\u0442\u044c \u0440\u0435\u0437\u0435\u0440\u0432\u043d\u0443\u044e \u043a\u043e\u043f\u0438\u044e
-	@echo "$(BLUE)\ud83d\udcbe \u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u0440\u0435\u0437\u0435\u0440\u0432\u043d\u043e\u0439 \u043a\u043e\u043f\u0438\u0438...$(NC)"
+	@echo "$(GREEN)✅ Образы обновлены$(NC)
+ 
+backup: ## Создать резервную копию
+	@echo "$(BLUE)💾 Создание резервной копии...$(NC)"
 	@mkdir -p $(BACKUP_DIR)
 	@./scripts/run.sh backup
-	@echo "$(GREEN)\u2705 \u0420\u0435\u0437\u0435\u0440\u0432\u043d\u0430\u044f \u043a\u043e\u043f\u0438\u044f \u0441\u043e\u0437\u0434\u0430\u043d\u0430$(NC)"
-
-
-restore: ## \u0412\u043e\u0441\u0441\u0442\u0430\u043d\u043e\u0432\u0438\u0442\u044c \u0438\u0437 \u0440\u0435\u0437\u0435\u0440\u0432\u043d\u043e\u0439 \u043a\u043e\u043f\u0438\u0438 (\u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439\u0442\u0435: make restore BACKUP_DIR=/path/to/backup)
+	@echo "$(GREEN)✅ Резервная копия создана$(NC)"
+ 
+restore: ## Восстановить из резервной копии (используйте: make restore BACKUP_DIR=/path/to/backup)
 	@if [ -z "$(BACKUP_DIR)" ]; then \
-		echo "$(RED)\u274c \u0423\u043a\u0430\u0436\u0438\u0442\u0435 \u043f\u0443\u0442\u044c \u043a \u0440\u0435\u0437\u0435\u0440\u0432\u043d\u043e\u0439 \u043a\u043e\u043f\u0438\u0438: make restore BACKUP_DIR=/path/to/backup$(NC)"; \
+		echo "$(RED)❌ Укажите путь к резервной копии: make restore BACKUP_DIR=/path/to/backup$(NC)"; \
 		exit 1; \
 	fi
-	@echo "$(BLUE)\ud83d\udd04 \u0412\u043e\u0441\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u0435 \u0438\u0437 $(BACKUP_DIR)...$(NC)"
+	@echo "$(BLUE)🔄 Восстановление из $(BACKUP_DIR)...$(NC)"
 	@./scripts/run.sh restore $(BACKUP_DIR)
-	@echo "$(GREEN)\u2705 \u0412\u043e\u0441\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u0435 \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u043e$(NC)"
-
-
-add-docs: ## \u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b (\u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439\u0442\u0435: make add-docs DOCS_PATH=/path/to/docs)
+	@echo "$(GREEN)✅ Восстановление завершено$(NC)"
+ 
+add-docs: ## Добавить документы (используйте: make add-docs DOCS_PATH=/path/to/docs)
 	@if [ -z "$(DOCS_PATH)" ]; then \
-		echo "$(RED)\u274c \u0423\u043a\u0430\u0436\u0438\u0442\u0435 \u043f\u0443\u0442\u044c \u043a \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0430\u043c: make add-docs DOCS_PATH=/path/to/docs$(NC)"; \
+		echo "$(RED)❌ Укажите путь к документам: make add-docs DOCS_PATH=/path/to/docs$(NC)"; \
 		exit 1; \
 	fi
-	@echo "$(BLUE)\ud83d\udcda \u0414\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u0438\u0435 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u0432 \u0438\u0437 $(DOCS_PATH)...$(NC)"
+	@echo "$(BLUE)📚 Добавление документов из $(DOCS_PATH)...$(NC)"
 	@./scripts/run.sh add $(DOCS_PATH)
-	@echo "$(GREEN)\u2705 \u0414\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b \u0434\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u044b$(NC)"
-
-
-train: ## \u041e\u0431\u0443\u0447\u0438\u0442\u044c \u043c\u043e\u0434\u0435\u043b\u044c
-	@echo "$(BLUE)\ud83c\udfae \u0417\u0430\u043f\u0443\u0441\u043a \u043e\u0431\u0443\u0447\u0435\u043d\u0438\u044f \u043c\u043e\u0434\u0435\u043b\u0438...$(NC)"
+	@echo "$(GREEN)✅ Документы добавлены$(NC)"
+ 
+train: ## Обучить модель
+	@echo "$(BLUE)🎮 Запуск обучения модели...$(NC)"
 	@docker-compose exec ai-agent python -c "
 from src.cli_interface import AIAgentCLI
 cli = AIAgentCLI()
 cli._train_model()
 "
-	@echo "$(GREEN)\u2705 \u041e\u0431\u0443\u0447\u0435\u043d\u0438\u0435 \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u043e$(NC)"
-
-
-monitor: ## \u041c\u043e\u043d\u0438\u0442\u043e\u0440\u0438\u043d\u0433 \u0440\u0435\u0441\u0443\u0440\u0441\u043e\u0432
-	@echo "$(BLUE)\ud83d\udcca \u041c\u043e\u043d\u0438\u0442\u043e\u0440\u0438\u043d\u0433 \u0440\u0435\u0441\u0443\u0440\u0441\u043e\u0432:$(NC)"
-	@echo "$(BLUE)\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u0435 \u043f\u0430\u043c\u044f\u0442\u0438:$(NC)"
+	@echo "$(GREEN)✅ Обучение завершено$(NC)"
+ 
+monitor: ## Мониторинг ресурсов
+	@echo "$(BLUE)📊 Мониторинг ресурсов:$(NC)"
+	@echo "$(BLUE)Использование памяти:$(NC)"
 	@free -h
 	@echo ""
-	@echo "$(BLUE)\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u0435 \u0434\u0438\u0441\u043a\u0430:$(NC)"
+	@echo "$(BLUE)Использование диска:$(NC)"
 	@df -h /home/sda3
 	@echo ""
-	@echo "$(BLUE)GPU \u0441\u0442\u0430\u0442\u0443\u0441:$(NC)"
-	@nvidia-smi --query-gpu=name,memory.used,memory.total,temperature.gpu,utilization.gpu --format=csv,noheader,nounits 2>/dev/null || echo "$(YELLOW)GPU \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d$(NC)"
-
-
-update-model: ## \u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u0431\u0430\u0437\u043e\u0432\u0443\u044e \u043c\u043e\u0434\u0435\u043b\u044c
-	@echo "$(BLUE)\ud83d\udd04 \u041e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u0435 \u0431\u0430\u0437\u043e\u0432\u043e\u0439 \u043c\u043e\u0434\u0435\u043b\u0438...$(NC)"
+	@echo "$(BLUE)GPU статус:$(NC)"
+	@nvidia-smi --query-gpu=name,memory.used,memory.total,temperature.gpu,utilization.gpu --format=csv,noheader,nounits 2>/dev/null || echo "$(YELLOW)GPU не найден$(NC)"
+ 
+update-model: ## Обновить базовую модель
+	@echo "$(BLUE)🔄 Обновление базовой модели...$(NC)"
 	@./scripts/run.sh update-model
-	@echo "$(GREEN)\u2705 \u041c\u043e\u0434\u0435\u043b\u044c \u043e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0430$(NC)"
-
-
-setup-dev: ## \u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430 \u043e\u043a\u0440\u0443\u0436\u0435\u043d\u0438\u044f \u0434\u043b\u044f \u0440\u0430\u0437\u0440\u0430\u0431\u043e\u0442\u043a\u0438
-	@echo "$(BLUE)\ud83d\udd27 \u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430 \u043e\u043a\u0440\u0443\u0436\u0435\u043d\u0438\u044f \u0440\u0430\u0437\u0440\u0430\u0431\u043e\u0442\u043a\u0438...$(NC)"
+	@echo "$(GREEN)✅ Модель обновлена$(NC)"
+ 
+setup-dev: ## Настройка окружения для разработки
+	@echo "$(BLUE)🔧 Настройка окружения разработки...$(NC)"
 	@if [ ! -d "venv" ]; then \
 		python3 -m venv venv; \
-		echo "$(YELLOW)\u0412\u0438\u0440\u0442\u0443\u0430\u043b\u044c\u043d\u043e\u0435 \u043e\u043a\u0440\u0443\u0436\u0435\u043d\u0438\u0435 \u0441\u043e\u0437\u0434\u0430\u043d\u043e$(NC)"; \
+		echo "$(YELLOW)Виртуальное окружение создано$(NC)"; \
 	fi
 	@source venv/bin/activate && pip install -r requirements.txt
-	@pre-commit install 2>/dev/null || echo "$(YELLOW)pre-commit \u043d\u0435 \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d$(NC)"
-	@echo "$(GREEN)\u2705 \u041e\u043a\u0440\u0443\u0436\u0435\u043d\u0438\u0435 \u0440\u0430\u0437\u0440\u0430\u0431\u043e\u0442\u043a\u0438 \u043d\u0430\u0441\u0442\u0440\u043e\u0435\u043d\u043e$(NC)"
-
-
-lint: ## \u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 \u043a\u043e\u0434\u0430
-	@echo "$(BLUE)\ud83d\udd0d \u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 \u043a\u043e\u0434\u0430...$(NC)"
+	@pre-commit install 2>/dev/null || echo "$(YELLOW)pre-commit не установлен$(NC)"
+	@echo "$(GREEN)✅ Окружение разработки настроено$(NC)"
+ 
+lint: ## Проверка кода
+	@echo "$(BLUE)🔍 Проверка кода...$(NC)"
 	@if command -v black >/dev/null 2>&1; then \
 		black --check src/; \
 	else \
-		echo "$(YELLOW)black \u043d\u0435 \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d$(NC)"; \
+		echo "$(YELLOW)black не установлен$(NC)"; \
 	fi
 	@if command -v flake8 >/dev/null 2>&1; then \
 		flake8 src/; \
 	else \
-		echo "$(YELLOW)flake8 \u043d\u0435 \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d$(NC)"; \
+		echo "$(YELLOW)flake8 не установлен$(NC)"; \
 	fi
-
-
-format: ## \u0424\u043e\u0440\u043c\u0430\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435 \u043a\u043e\u0434\u0430
-	@echo "$(BLUE)\ud83c\udfa8 \u0424\u043e\u0440\u043c\u0430\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435 \u043a\u043e\u0434\u0430...$(NC)"
+ 
+format: ## Форматирование кода
+	@echo "$(BLUE)🎨 Форматирование кода...$(NC)"
 	@if command -v black >/dev/null 2>&1; then \
 		black src/; \
-		echo "$(GREEN)\u2705 \u041a\u043e\u0434 \u043e\u0442\u0444\u043e\u0440\u043c\u0430\u0442\u0438\u0440\u043e\u0432\u0430\u043d$(NC)"; \
+		echo "$(GREEN)✅ Код отформатирован$(NC)"; \
 	else \
-		echo "$(YELLOW)black \u043d\u0435 \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d. \u0423\u0441\u0442\u0430\u043d\u043e\u0432\u0438\u0442\u0435: pip install black$(NC)"; \
+		echo "$(YELLOW)black не установлен. Установите: pip install black$(NC)"; \
 	fi
-
-
-docs: ## \u041e\u0442\u043a\u0440\u044b\u0442\u044c \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0430\u0446\u0438\u044e
-	@echo "$(BLUE)\ud83d\udcda \u0414\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0430\u0446\u0438\u044f:$(NC)"
+ 
+docs: ## Открыть документацию
+	@echo "$(BLUE)📚 Документация:$(NC)"
 	@echo "README: $(PWD)/docs/README.md"
 	@echo "Examples: $(PWD)/docs/examples.md"
 	@if command -v xdg-open >/dev/null 2>&1; then \
@@ -204,45 +176,38 @@ docs: ## \u041e\u0442\u043a\u0440\u044b\u0442\u044c \u0434\u043e\u043a\u0443\u04
 	elif command -v open >/dev/null 2>&1; then \
 		open docs/README.md; \
 	else \
-		echo "$(YELLOW)\u041e\u0442\u043a\u0440\u043e\u0439\u0442\u0435 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0430\u0446\u0438\u044e \u0432\u0440\u0443\u0447\u043d\u0443\u044e$(NC)"; \
+		echo "$(YELLOW)Откройте документацию вручную$(NC)"; \
 	fi
-
-
-\u041a\u043e\u043c\u0430\u043d\u0434\u044b \u0434\u043b\u044f \u0440\u0430\u0431\u043e\u0442\u044b \u0441 \u043c\u043e\u0434\u0435\u043b\u044f\u043c\u0438
-
-list-models: ## \u041f\u043e\u043a\u0430\u0437\u0430\u0442\u044c \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b\u0435 \u043c\u043e\u0434\u0435\u043b\u0438
-	@echo "$(BLUE)\ud83e\udd16 \u0414\u043e\u0441\u0442\u0443\u043f\u043d\u044b\u0435 \u043c\u043e\u0434\u0435\u043b\u0438:$(NC)"
-	@ls -la /home/sda3/ai-agent/models/ 2>/dev/null || echo "$(YELLOW)\u0414\u0438\u0440\u0435\u043a\u0442\u043e\u0440\u0438\u044f \u043c\u043e\u0434\u0435\u043b\u0435\u0439 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u0430$(NC)"
-
-
-save-model: ## \u0421\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c \u0442\u0435\u043a\u0443\u0449\u0443\u044e \u043c\u043e\u0434\u0435\u043b\u044c
-	@echo "$(BLUE)\ud83d\udcbe \u0421\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u0435 \u043c\u043e\u0434\u0435\u043b\u0438...$(NC)"
-	@read -p "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0438\u043c\u044f \u043c\u043e\u0434\u0435\u043b\u0438: " model_name; \
+ 
+# Команды для работы с моделями
+list-models: ## Показать доступные модели
+	@echo "$(BLUE)🤖 Доступные модели:$(NC)"
+	@ls -la /home/sda3/ai-agent/models/ 2>/dev/null || echo "$(YELLOW)Директория моделей не найдена$(NC)"
+ 
+save-model: ## Сохранить текущую модель
+	@echo "$(BLUE)💾 Сохранение модели...$(NC)"
+	@read -p "Введите имя модели: " model_name; \
 	./scripts/run.sh save-model $$model_name
-	@echo "$(GREEN)\u2705 \u041c\u043e\u0434\u0435\u043b\u044c \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0430$(NC)"
-
-
-\u041f\u043e\u043b\u0435\u0437\u043d\u044b\u0435 \u043a\u043e\u043c\u0430\u043d\u0434\u044b
-
-info: ## \u041f\u043e\u043a\u0430\u0437\u0430\u0442\u044c \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u044e \u043e \u043f\u0440\u043e\u0435\u043a\u0442\u0435
-	@echo "$(BLUE)\ud83d\udccb \u0418\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u044f \u043e \u043f\u0440\u043e\u0435\u043a\u0442\u0435:$(NC)"
-	@echo "\u041d\u0430\u0437\u0432\u0430\u043d\u0438\u0435: $(PROJECT_NAME)"
-	@echo "\u0414\u0438\u0440\u0435\u043a\u0442\u043e\u0440\u0438\u044f: $(PWD)"
+	@echo "$(GREEN)✅ Модель сохранена$(NC)"
+ 
+# Полезные команды
+info: ## Показать информацию о проекте
+	@echo "$(BLUE)📋 Информация о проекте:$(NC)"
+	@echo "Название: $(PROJECT_NAME)"
+	@echo "Директория: $(PWD)"
 	@echo "Docker Compose: $(COMPOSE_FILE)"
 	@echo ""
-	@echo "$(BLUE)\u041f\u0443\u0442\u0438 \u043a \u0434\u0430\u043d\u043d\u044b\u043c:$(NC)"
-	@echo "\u041c\u043e\u0434\u0435\u043b\u0438: /home/sda3/ai-agent/models"
-	@echo "\u0414\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b: /home/sda3/ai-agent/documents"
-	@echo "\u041a\u044d\u0448: /home/sda3/ai-agent/cache"
-	@echo "\u0411\u044d\u043a\u0430\u043f\u044b: $(BACKUP_DIR)"
+	@echo "$(BLUE)Пути к данным:$(NC)"
+	@echo "Модели: /home/sda3/ai-agent/models"
+	@echo "Документы: /home/sda3/ai-agent/documents"
+	@echo "Кэш: /home/sda3/ai-agent/cache"
+	@echo "Бэкапы: $(BACKUP_DIR)"
 	@echo ""
-	@echo "$(BLUE)\u0421\u0435\u0442\u0435\u0432\u044b\u0435 \u043f\u043e\u0440\u0442\u044b:$(NC)"
+	@echo "$(BLUE)Сетевые порты:$(NC)"
 	@echo "Neo4j: http://localhost:7474"
 	@echo "Neo4j Bolt: localhost:7687"
 	@echo "Chroma: http://localhost:8001"
 	@echo "Agent (future): http://localhost:8000"
-
-
-\u0423\u0441\u0442\u0430\u043d\u043e\u0432\u043a\u0430 \u043f\u043e \u0443\u043c\u043e\u043b\u0447\u0430\u043d\u0438\u044e
-
+ 
+# Установка по умолчанию
 .DEFAULT_GOAL := help

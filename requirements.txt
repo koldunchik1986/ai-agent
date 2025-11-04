@@ -1,5 +1,4 @@
-Core ML/AI dependencies
-
+# Core ML/AI dependencies
 torch>=2.0.0
 transformers>=4.35.0
 accelerate>=0.24.0
@@ -7,55 +6,41 @@ bitsandbytes>=0.41.0
 sentence-transformers>=2.2.0
 datasets>=2.14.0
 peft>=0.6.0
-
-
-LangChain ecosystem
-
+ 
+# LangChain ecosystem
 langchain>=0.0.340
 langchain-community>=0.0.4
 langchain-core>=0.1.8
 langchain-openai>=0.0.2
-
-
-Vector databases
-
+ 
+# Vector databases
 chromadb>=0.4.15
 faiss-cpu>=1.7.4
-
-
-Knowledge graph
-
+ 
+# Knowledge graph
 neo4j>=5.14.0
 py2neo>=2021.2.4
-
-
-Document processing
-
+ 
+# Document processing
 pypdf2>=3.0.1
 python-docx>=0.8.11
 python-docx2txt>=0.8
 unstructured[pdf]>=0.10.0
 pymupdf>=1.23.0
-
-
-CLI interface
-
+ 
+# CLI interface
 rich>=13.6.0
 click>=8.1.7
 prompt-toolkit>=3.0.39
-
-
-Utilities
-
+ 
+# Utilities
 numpy>=1.24.0
 pandas>=2.1.0
 tqdm>=4.66.0
 pyyaml>=6.0.1
 python-dotenv>=1.0.0
 loguru>=0.7.2
-
-
-Development
-
+ 
+# Development
 pytest>=7.4.0
 black>=23.9.0

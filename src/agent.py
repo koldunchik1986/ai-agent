@@ -1,7 +1,6 @@
-
 """
-\u041e\u0441\u043d\u043e\u0432\u043d\u043e\u0439 AI-\u0430\u0433\u0435\u043d\u0442 \u043d\u0430 \u0431\u0430\u0437\u0435 Mistral AI 7B
-\u0418\u043d\u0442\u0435\u0433\u0440\u0430\u0446\u0438\u044f \u0441 document processing, model training, knowledge graph
+Основной AI-агент на базе Mistral AI 7B
+Интеграция с document processing, model training, knowledge graph
 """
 
 import os
@@ -30,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class AgentResponse:
-    """\u041a\u043b\u0430\u0441\u0441 \u0434\u043b\u044f \u043f\u0440\u0435\u0434\u0441\u0442\u0430\u0432\u043b\u0435\u043d\u0438\u044f \u043e\u0442\u0432\u0435\u0442\u0430 \u0430\u0433\u0435\u043d\u0442\u0430"""
+    """Класс для представления ответа агента"""
     content: str
     sources: List[Dict[str, Any]]
     confidence: float
@@ -38,7 +37,7 @@ class AgentResponse:
     context_used: bool
 
 class AIAgent:
-    """\u041e\u0441\u043d\u043e\u0432\u043d\u043e\u0439 \u043a\u043b\u0430\u0441\u0441 AI-\u0430\u0433\u0435\u043d\u0442\u0430"""
+    """Основной класс AI-агента"""
     
     def __init__(self, model_path: Optional[str] = None):
         self.model = None
@@ -46,22 +45,22 @@ class AIAgent:
         self.generation_pipeline = None
         self.llm = None
         
-        # \u041a\u043e\u043c\u043f\u043e\u043d\u0435\u043d\u0442\u044b
+        # Компоненты
         self.document_processor = None
         self.knowledge_graph = None
         self.model_trainer = None
         
-        # \u041f\u0430\u043c\u044f\u0442\u044c \u0438 \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442
+        # Память и контекст
         self.conversation_memory = ConversationBufferMemory()
         self.current_context = []
         
-        # \u0418\u043d\u0438\u0446\u0438\u0430\u043b\u0438\u0437\u0430\u0446\u0438\u044f
+        # Инициализация
         self._init_model(model_path)
         self._init_components()
         self._init_generation_pipeline()
     
     def _init_model(self, model_path: Optional[str] = None):
-        """\u0418\u043d\u0438\u0446\u0438\u0430\u043b\u0438\u0437\u0430\u0446\u0438\u044f \u043c\u043e\u0434\u0435\u043b\u0438"""
+        """Инициализация модели"""
         try:
             if model_path and os.path.exists(model_path):
                 logger.info(f"Loading fine-tuned model from: {model_path}")
@@ -72,7 +71,7 @@ class AIAgent:
             else:
                 logger.info(f"Loading base model: {config.model.model_name}")
                 
-                # \u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430 \u0431\u0430\u0437\u043e\u0432\u043e\u0439 \u043c\u043e\u0434\u0435\u043b\u0438
+                # Загрузка базовой модели
                 self.model = AutoModelForCausalLM.from_pretrained(
                     config.model.model_name,
                     cache_dir=config.model.cache_dir,
@@ -98,7 +97,7 @@ class AIAgent:
             raise
     
     def _init_components(self):
-        """\u0418\u043d\u0438\u0446\u0438\u0430\u043b\u0438\u0437\u0430\u0446\u0438\u044f \u043a\u043e\u043c\u043f\u043e\u043d\u0435\u043d\u0442\u043e\u0432 \u0430\u0433\u0435\u043d\u0442\u0430"""
+        """Инициализация компонентов агента"""
         try:
             # Document processor
             self.document_processor = DocumentProcessor()
@@ -116,9 +115,9 @@ class AIAgent:
             logger.error(f"Error initializing components: {e}")
     
     def _init_generation_pipeline(self):
-        """\u0418\u043d\u0438\u0446\u0438\u0430\u043b\u0438\u0437\u0430\u0446\u0438\u044f pipeline \u0434\u043b\u044f \u0433\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u0438"""
+        """Инициализация pipeline для генерации"""
         try:
-            # \u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 HuggingFace pipeline
+            # Создание HuggingFace pipeline
             self.generation_pipeline = pipeline(
                 "text-generation",
                 model=self.model,
@@ -133,7 +132,7 @@ class AIAgent:
                 return_full_text=False
             )
             
-            # \u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 LangChain LLM
+            # Создание LangChain LLM
             self.llm = HuggingFacePipeline(pipeline=self.generation_pipeline)
             
             logger.info("Generation pipeline initialized successfully")
@@ -142,11 +141,11 @@ class AIAgent:
             logger.error(f"Error initializing generation pipeline: {e}")
     
     def add_documents(self, file_paths: List[str]) -> Dict[str, Any]:
-        """\u0414\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u0438\u0435 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u0432 \u0432 \u0431\u0430\u0437\u0443 \u0437\u043d\u0430\u043d\u0438\u0439"""
+        """Добавление документов в базу знаний"""
         try:
             logger.info(f"Adding {len(file_paths)} documents to knowledge base")
             
-            # \u041e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0430 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u0432
+            # Обработка документов
             processed_docs = []
             for file_path in file_paths:
                 doc = self.document_processor.process_single_document(file_path)
@@ -156,10 +155,10 @@ class AIAgent:
             if not processed_docs:
                 return {"success": False, "message": "No documents were processed successfully"}
             
-            # \u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u044d\u043c\u0431\u0435\u0434\u0434\u0438\u043d\u0433\u043e\u0432
+            # Создание эмбеддингов
             embedding_success = self.document_processor.create_embeddings(processed_docs)
             
-            # \u0414\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u0438\u0435 \u0432 knowledge graph
+            # Добавление в knowledge graph
             graph_processed = 0
             for doc in processed_docs:
                 content = " ".join([chunk.content for chunk in doc.chunks])
@@ -184,23 +183,23 @@ class AIAgent:
             return {"success": False, "message": str(e)}
     
     def train_on_documents(self, save_path: Optional[str] = None) -> Dict[str, Any]:
-        """\u041e\u0431\u0443\u0447\u0435\u043d\u0438\u0435 \u043c\u043e\u0434\u0435\u043b\u0438 \u043d\u0430 \u0434\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u043d\u044b\u0445 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0430\u0445"""
+        """Обучение модели на добавленных документах"""
         try:
-            # \u041f\u043e\u043b\u0443\u0447\u0435\u043d\u0438\u0435 \u0432\u0441\u0435\u0445 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u0432 \u0438\u0437 vector store
+            # Получение всех документов из vector store
             collection = self.document_processor.collection
             
-            # \u041f\u043e\u043b\u0443\u0447\u0435\u043d\u0438\u0435 \u0432\u0441\u0435\u0445 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u0432
+            # Получение всех документов
             all_docs = collection.get()
             
             if not all_docs['documents']:
                 return {"success": False, "message": "No documents found for training"}
             
-            # \u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u043e\u0431\u044a\u0435\u043a\u0442\u043e\u0432 ProcessedDocument \u0438\u0437 vector store
+            # Создание объектов ProcessedDocument из vector store
             processed_docs = []
-            # \u0417\u0434\u0435\u0441\u044c \u043d\u0443\u0436\u043d\u043e \u043f\u0440\u0435\u043e\u0431\u0440\u0430\u0437\u043e\u0432\u0430\u0442\u044c \u0434\u0430\u043d\u043d\u044b\u0435 \u0438\u0437 vector store \u0432 ProcessedDocument \u043e\u0431\u044a\u0435\u043a\u0442\u044b
-            # \u0423\u043f\u0440\u043e\u0449\u0435\u043d\u043d\u0430\u044f \u0432\u0435\u0440\u0441\u0438\u044f \u0434\u043b\u044f \u0434\u0435\u043c\u043e\u043d\u0441\u0442\u0440\u0430\u0446\u0438\u0438
+            # Здесь нужно преобразовать данные из vector store в ProcessedDocument объекты
+            # Упрощенная версия для демонстрации
             
-            # \u0417\u0430\u043f\u0443\u0441\u043a \u043e\u0431\u0443\u0447\u0435\u043d\u0438\u044f
+            # Запуск обучения
             training_result = self.model_trainer.train_model(processed_docs, save_path)
             
             return {"success": True, "training_result": training_result}
@@ -210,18 +209,18 @@ class AIAgent:
             return {"success": False, "message": str(e)}
     
     def retrieve_relevant_context(self, query: str, max_context_items: int = 5) -> List[Dict[str, Any]]:
-        """\u041f\u043e\u043b\u0443\u0447\u0435\u043d\u0438\u0435 \u0440\u0435\u043b\u0435\u0432\u0430\u043d\u0442\u043d\u043e\u0433\u043e \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442\u0430 \u0438\u0437 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u0432"""
+        """Получение релевантного контекста из документов"""
         try:
-            # \u041f\u043e\u0438\u0441\u043a \u0432 \u0432\u0435\u043a\u0442\u043e\u0440\u043d\u043e\u0439 \u0431\u0430\u0437\u0435 \u0434\u0430\u043d\u043d\u044b\u0445
+            # Поиск в векторной базе данных
             vector_results = self.document_processor.search_similar_documents(query, max_context_items)
             
-            # \u041f\u043e\u0438\u0441\u043a \u0432 knowledge graph
+            # Поиск в knowledge graph
             graph_context = self.knowledge_graph.get_context_for_query(query)
             
-            # \u041e\u0431\u044a\u0435\u0434\u0438\u043d\u0435\u043d\u0438\u0435 \u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442\u043e\u0432
+            # Объединение результатов
             context_items = []
             
-            # \u0414\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u0438\u0435 \u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442\u043e\u0432 \u0438\u0437 vector store
+            # Добавление результатов из vector store
             for result in vector_results:
                 context_items.append({
                     "type": "document",
@@ -231,7 +230,7 @@ class AIAgent:
                     "relevance_score": 1 - result["distance"]
                 })
             
-            # \u0414\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u0438\u0435 \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442\u0430 \u0438\u0437 knowledge graph
+            # Добавление контекста из knowledge graph
             if graph_context:
                 context_items.append({
                     "type": "knowledge_graph",
@@ -240,7 +239,7 @@ class AIAgent:
                     "relevance_score": 0.8
                 })
             
-            # \u0421\u043e\u0440\u0442\u0438\u0440\u043e\u0432\u043a\u0430 \u043f\u043e \u0440\u0435\u043b\u0435\u0432\u0430\u043d\u0442\u043d\u043e\u0441\u0442\u0438
+            # Сортировка по релевантности
             context_items.sort(key=lambda x: x["relevance_score"], reverse=True)
             
             return context_items[:max_context_items]
@@ -250,51 +249,51 @@ class AIAgent:
             return []
     
     def generate_prompt_with_context(self, query: str, context_items: List[Dict[str, Any]]) -> str:
-        """\u0413\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u044f \u043f\u0440\u043e\u043c\u043f\u0442\u0430 \u0441 \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442\u043e\u043c"""
-        base_prompt = """\u0422\u0438 - AI-\u0430\u0441\u0438\u0441\u0442\u0435\u043d\u0442, \u043d\u0430\u0432\u0447\u0435\u043d\u0438\u0439 \u043d\u0430 \u043f\u0440\u043e\u0433\u0440\u0430\u043c\u0443\u0432\u0430\u043d\u043d\u0456 \u0442\u0430 \u044e\u0440\u0438\u0434\u0438\u0447\u043d\u0438\u0445 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0430\u0445 \u0423\u043a\u0440\u0430\u0457\u043d\u0438. 
-\u0422\u0432\u043e\u044f \u0437\u0430\u0434\u0430\u0447\u0430 - \u0434\u0430\u0432\u0430\u0442\u0438 \u0442\u043e\u0447\u043d\u0456, \u043a\u043e\u0440\u0438\u0441\u043d\u0456 \u0442\u0430 \u0434\u0435\u0442\u0430\u043b\u044c\u043d\u0456 \u0432\u0456\u0434\u043f\u043e\u0432\u0456\u0434\u0456 \u043d\u0430 \u043e\u0441\u043d\u043e\u0432\u0456 \u043d\u0430\u0434\u0430\u043d\u043e\u0433\u043e \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442\u0443.
+        """Генерация промпта с контекстом"""
+        base_prompt = """Ти - AI-асистент, навчений на програмуванні та юридичних документах України. 
+Твоя задача - давати точні, корисні та детальні відповіді на основі наданого контексту.
 
-\u041a\u043e\u043d\u0442\u0435\u043a\u0441\u0442 \u0437 \u0431\u0430\u0437\u0438 \u0437\u043d\u0430\u043d\u044c:
+Контекст з бази знань:
 """
         
-        # \u0414\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u0438\u0435 \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442\u0430
+        # Добавление контекста
         if context_items:
             for i, item in enumerate(context_items, 1):
                 base_prompt += f"\
 {i}. {item['content']}\
 "
                 if item.get('metadata', {}).get('file_name'):
-                    base_prompt += f"   \u0414\u0436\u0435\u0440\u0435\u043b\u043e: {item['metadata']['file_name']}\
+                    base_prompt += f"   Джерело: {item['metadata']['file_name']}\
 "
             
             base_prompt += "\
 "
         else:
-            base_prompt += "\u041a\u043e\u043d\u0442\u0435\u043a\u0441\u0442 \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e. \u0411\u0443\u0434\u044c \u043b\u0430\u0441\u043a\u0430, \u0434\u0430\u0439 \u0432\u0456\u0434\u043f\u043e\u0432\u0456\u0434\u044c \u043d\u0430 \u043e\u0441\u043d\u043e\u0432\u0456 \u0441\u0432\u043e\u0457\u0445 \u0437\u0430\u0433\u0430\u043b\u044c\u043d\u0438\u0445 \u0437\u043d\u0430\u043d\u044c.\
+            base_prompt += "Контекст не знайдено. Будь ласка, дай відповідь на основі своїх загальних знань.\
 \
 "
         
-        base_prompt += f"\u041f\u0438\u0442\u0430\u043d\u043d\u044f \u043a\u043e\u0440\u0438\u0441\u0442\u0443\u0432\u0430\u0447\u0430: {query}\
+        base_prompt += f"Питання користувача: {query}\
 \
 "
-        base_prompt += "\u0414\u0430\u0439 \u0434\u0435\u0442\u0430\u043b\u044c\u043d\u0443 \u0432\u0456\u0434\u043f\u043e\u0432\u0456\u0434\u044c \u0443\u043a\u0440\u0430\u0457\u043d\u0441\u044c\u043a\u043e\u044e \u043c\u043e\u0432\u043e\u044e:"
+        base_prompt += "Дай детальну відповідь українською мовою:"
         
         return base_prompt
     
     def generate_response(self, query: str, use_context: bool = True) -> AgentResponse:
-        """\u0413\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u044f \u043e\u0442\u0432\u0435\u0442\u0430 \u043d\u0430 \u0437\u0430\u043f\u0440\u043e\u0441"""
+        """Генерация ответа на запрос"""
         start_time = datetime.now()
         
         try:
-            # \u041f\u043e\u043b\u0443\u0447\u0435\u043d\u0438\u0435 \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442\u0430
+            # Получение контекста
             context_items = []
             if use_context:
                 context_items = self.retrieve_relevant_context(query)
             
-            # \u0413\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u044f \u043f\u0440\u043e\u043c\u043f\u0442\u0430
+            # Генерация промпта
             prompt = self.generate_prompt_with_context(query, context_items)
             
-            # \u0413\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u044f \u043e\u0442\u0432\u0435\u0442\u0430
+            # Генерация ответа
             response = self.generation_pipeline(
                 prompt,
                 max_new_tokens=config.model.max_new_tokens,
@@ -303,14 +302,14 @@ class AIAgent:
                 pad_token_id=self.tokenizer.eos_token_id
             )
             
-            # \u041e\u0447\u0438\u0441\u0442\u043a\u0430 \u043e\u0442\u0432\u0435\u0442\u0430
+            # Очистка ответа
             generated_text = response[0]['generated_text'] if response else ""
             generated_text = generated_text.strip()
             
-            # \u0420\u0430\u0441\u0447\u0435\u0442 \u0432\u0440\u0435\u043c\u0435\u043d\u0438 \u043e\u0442\u0432\u0435\u0442\u0430
+            # Расчет времени ответа
             response_time = (datetime.now() - start_time).total_seconds()
             
-            # \u0424\u043e\u0440\u043c\u0430\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435 \u0438\u0441\u0442\u043e\u0447\u043d\u0438\u043a\u043e\u0432
+            # Форматирование источников
             sources = []
             for item in context_items:
                 sources.append({
@@ -320,10 +319,10 @@ class AIAgent:
                     "relevance": item["relevance_score"]
                 })
             
-            # \u0420\u0430\u0441\u0447\u0435\u0442 \u0443\u0432\u0435\u0440\u0435\u043d\u043d\u043e\u0441\u0442\u0438
+            # Расчет уверенности
             confidence = 0.8 if context_items else 0.6
             
-            # \u0421\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u0435 \u0432 \u043f\u0430\u043c\u044f\u0442\u044c
+            # Сохранение в память
             self.conversation_memory.save_context(
                 {"input": query},
                 {"output": generated_text}
@@ -341,7 +340,7 @@ class AIAgent:
             logger.error(f"Error generating response: {e}")
             
             return AgentResponse(
-                content=f"\u0412\u0438\u0431\u0430\u0447\u0442\u0435, \u0441\u0442\u0430\u043b\u0430\u0441\u044f \u043f\u043e\u043c\u0438\u043b\u043a\u0430 \u043f\u0440\u0438 \u0433\u0435\u043d\u0435\u0440\u0430\u0446\u0456\u0457 \u0432\u0456\u0434\u043f\u043e\u0432\u0456\u0434\u0456: {str(e)}",
+                content=f"Вибачте, сталася помилка при генерації відповіді: {str(e)}",
                 sources=[],
                 confidence=0.0,
                 response_time=(datetime.now() - start_time).total_seconds(),
@@ -349,21 +348,21 @@ class AIAgent:
             )
     
     def handle_programming_query(self, query: str) -> AgentResponse:
-        """\u041e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0430 \u043f\u0440\u043e\u0433\u0440\u0430\u043c\u043c\u043d\u044b\u0445 \u0437\u0430\u043f\u0440\u043e\u0441\u043e\u0432"""
-        # \u0414\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u0438\u0435 \u0441\u043f\u0435\u0446\u0438\u0430\u043b\u044c\u043d\u043e\u0433\u043e \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442\u0430 \u0434\u043b\u044f \u043f\u0440\u043e\u0433\u0440\u0430\u043c\u043c\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f
+        """Обработка программных запросов"""
+        # Добавление специального контекста для программирования
         programming_context = """
-\u0414\u043b\u044f \u043f\u0440\u043e\u0433\u0440\u0430\u043c\u0443\u0432\u0430\u043d\u043d\u044f \u0432\u0438\u043a\u043e\u0440\u0438\u0441\u0442\u043e\u0432\u0443\u0439 \u043d\u0430\u0441\u0442\u0443\u043f\u043d\u0456 \u043f\u0456\u0434\u0445\u043e\u0434\u0438:
-1. \u0410\u043d\u0430\u043b\u0456\u0437\u0443\u0439 \u043a\u043e\u0434 \u043d\u0430 \u0432\u0456\u0434\u043f\u043e\u0432\u0456\u0434\u043d\u0456\u0441\u0442\u044c best practices
-2. \u041f\u0440\u043e\u043f\u043e\u043d\u0443\u0439 \u043e\u043f\u0442\u0438\u043c\u0456\u0437\u0430\u0446\u0456\u044e \u0442\u0430 \u0440\u0435\u0444\u0430\u043a\u0442\u043e\u0440\u0438\u043d\u0433
-3. \u0412\u043a\u0430\u0437\u0443\u0439 \u043d\u0430 \u043f\u043e\u0442\u0435\u043d\u0446\u0456\u0439\u043d\u0456 \u043f\u0440\u043e\u0431\u043b\u0435\u043c\u0438 \u0431\u0435\u0437\u043f\u0435\u043a\u0438
-4. \u0414\u0430\u0432\u0430\u0439 \u043a\u043e\u043d\u043a\u0440\u0435\u0442\u043d\u0456 \u043f\u0440\u0438\u043a\u043b\u0430\u0434\u0438 \u043a\u043e\u0434\u0443
-5. \u0420\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0443\u0439 \u0432\u0456\u0434\u043f\u043e\u0432\u0456\u0434\u043d\u0456 \u0431\u0456\u0431\u043b\u0456\u043e\u0442\u0435\u043a\u0438 \u0442\u0430 \u0456\u043d\u0441\u0442\u0440\u0443\u043c\u0435\u043d\u0442\u0438
+Для програмування використовуй наступні підходи:
+1. Аналізуй код на відповідність best practices
+2. Пропонуй оптимізацію та рефакторинг
+3. Вказуй на потенційні проблеми безпеки
+4. Давай конкретні приклади коду
+5. Рекомендуй відповідні бібліотеки та інструменти
 """
         
-        # \u041f\u043e\u043b\u0443\u0447\u0435\u043d\u0438\u0435 \u0440\u0435\u043b\u0435\u0432\u0430\u043d\u0442\u043d\u043e\u0433\u043e \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442\u0430 \u043f\u0440\u043e\u0433\u0440\u0430\u043c\u043c\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f
+        # Получение релевантного контекста программирования
         context_items = self.retrieve_relevant_context(query)
         
-        # \u0414\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u0438\u0435 \u043f\u0440\u043e\u0433\u0440\u0430\u043c\u043c\u043d\u043e\u0433\u043e \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442\u0430
+        # Добавление программного контекста
         context_items.append({
             "type": "programming_guidelines",
             "content": programming_context,
@@ -373,14 +372,14 @@ class AIAgent:
         
         prompt = self.generate_prompt_with_context(query, context_items)
         
-        # \u0413\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u044f \u043e\u0442\u0432\u0435\u0442\u0430 \u0441 \u043c\u0435\u043d\u044c\u0448\u0435\u0439 \u0442\u0435\u043c\u043f\u0435\u0440\u0430\u0442\u0443\u0440\u043e\u0439 \u0434\u043b\u044f \u043a\u043e\u0434\u0430
+        # Генерация ответа с меньшей температурой для кода
         original_temp = config.model.temperature
-        config.model.temperature = 0.3  # \u0411\u043e\u043b\u0435\u0435 \u0434\u0435\u0442\u0435\u0440\u043c\u0438\u043d\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u044b\u0435 \u043e\u0442\u0432\u0435\u0442\u044b \u0434\u043b\u044f \u043a\u043e\u0434\u0430
+        config.model.temperature = 0.3  # Более детерминированные ответы для кода
         
         try:
             response = self.generate_response(query, use_context=False)
             
-            # \u0413\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u044f \u0441 \u0441\u043f\u0435\u0446\u0438\u0430\u043b\u044c\u043d\u044b\u043c \u043f\u0440\u043e\u043c\u043f\u0442\u043e\u043c
+            # Генерация с специальным промптом
             generation_result = self.generation_pipeline(
                 prompt,
                 max_new_tokens=config.model.max_new_tokens,
@@ -398,22 +397,22 @@ class AIAgent:
             config.model.temperature = original_temp
     
     def handle_legal_query(self, query: str) -> AgentResponse:
-        """\u041e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0430 \u044e\u0440\u0438\u0434\u0438\u0447\u0435\u0441\u043a\u0438\u0445 \u0437\u0430\u043f\u0440\u043e\u0441\u043e\u0432"""
+        """Обработка юридических запросов"""
         legal_disclaimer = """
-\u0412\u0410\u0416\u041b\u0418\u0412\u041e: \u0426\u044f \u0432\u0456\u0434\u043f\u043e\u0432\u0456\u0434\u044c \u043d\u0430\u0434\u0430\u0454\u0442\u044c\u0441\u044f \u0432 \u0456\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0456\u0439\u043d\u0438\u0445 \u0446\u0456\u043b\u044f\u0445 \u0456 \u043d\u0435 \u0454 \u044e\u0440\u0438\u0434\u0438\u0447\u043d\u043e\u044e \u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u0446\u0456\u0454\u044e. 
-\u0414\u043b\u044f \u043e\u0442\u0440\u0438\u043c\u0430\u043d\u043d\u044f \u043f\u0440\u043e\u0444\u0435\u0441\u0456\u0439\u043d\u043e\u0457 \u044e\u0440\u0438\u0434\u0438\u0447\u043d\u043e\u0457 \u0434\u043e\u043f\u043e\u043c\u043e\u0433\u0438 \u0437\u0432\u0435\u0440\u043d\u0456\u0442\u044c\u0441\u044f \u0434\u043e \u043a\u0432\u0430\u043b\u0456\u0444\u0456\u043a\u043e\u0432\u0430\u043d\u043e\u0433\u043e \u044e\u0440\u0438\u0441\u0442\u0430.
+ВАЖЛИВО: Ця відповідь надається в інформаційних цілях і не є юридичною консультацією. 
+Для отримання професійної юридичної допомоги зверніться до кваліфікованого юриста.
 
-\u0410\u043d\u0430\u043b\u0456\u0437\u0443\u044e\u0447\u0438 \u044e\u0440\u0438\u0434\u0438\u0447\u043d\u0456 \u043f\u0438\u0442\u0430\u043d\u043d\u044f, \u043a\u0435\u0440\u0443\u044e\u0441\u044f \u043d\u0430\u0441\u0442\u0443\u043f\u043d\u0438\u043c:
-1. \u0417\u0430\u043a\u043e\u043d\u043e\u0434\u0430\u0432\u0441\u0442\u0432\u043e \u0423\u043a\u0440\u0430\u0457\u043d\u0438
-2. \u0421\u0443\u0434\u043e\u0432\u0430 \u043f\u0440\u0430\u043a\u0442\u0438\u043a\u0430
-3. \u0424\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u0456 \u0432\u0438\u043c\u043e\u0433\u0438 \u0434\u043e \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0456\u0432
-4. \u041f\u0440\u043e\u0446\u0435\u0441\u0443\u0430\u043b\u044c\u043d\u0456 \u0442\u0435\u0440\u043c\u0456\u043d\u0438 \u0442\u0430 \u043f\u043e\u0440\u044f\u0434\u043e\u043a
+Аналізуючи юридичні питання, керуюся наступним:
+1. Законодавство України
+2. Судова практика
+3. Формальні вимоги до документів
+4. Процесуальні терміни та порядок
 """
         
-        # \u041f\u043e\u043b\u0443\u0447\u0435\u043d\u0438\u0435 \u044e\u0440\u0438\u0434\u0438\u0447\u0435\u0441\u043a\u043e\u0433\u043e \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442\u0430
+        # Получение юридического контекста
         context_items = self.retrieve_relevant_context(query)
         
-        # \u0414\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u0438\u0435 \u0434\u0438\u0441\u043a\u043b\u0435\u0439\u043c\u0435\u0440\u0430
+        # Добавление дисклеймера
         context_items.append({
             "type": "legal_disclaimer",
             "content": legal_disclaimer,
@@ -421,20 +420,20 @@ class AIAgent:
             "relevance_score": 1.0
         })
         
-        # \u0413\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u044f \u043e\u0442\u0432\u0435\u0442\u0430
+        # Генерация ответа
         prompt = self.generate_prompt_with_context(query, context_items)
         
         generation_result = self.generation_pipeline(
             prompt,
             max_new_tokens=config.model.max_new_tokens,
-            temperature=0.5,  # \u0421\u0431\u0430\u043b\u0430\u043d\u0441\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u0430\u044f \u0442\u0435\u043c\u043f\u0435\u0440\u0430\u0442\u0443\u0440\u0430 \u0434\u043b\u044f \u044e\u0440\u0438\u0434\u0438\u0447\u0435\u0441\u043a\u0438\u0445 \u043e\u0442\u0432\u0435\u0442\u043e\u0432
+            temperature=0.5,  # Сбалансированная температура для юридических ответов
             do_sample=True,
             pad_token_id=self.tokenizer.eos_token_id
         )
         
         generated_text = generation_result[0]['generated_text'].strip() if generation_result else ""
         
-        # \u0424\u043e\u0440\u043c\u0430\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435 \u0438\u0441\u0442\u043e\u0447\u043d\u0438\u043a\u043e\u0432
+        # Форматирование источников
         sources = []
         for item in context_items:
             sources.append({
@@ -453,17 +452,17 @@ class AIAgent:
         )
     
     def detect_query_type(self, query: str) -> str:
-        """\u041e\u043f\u0440\u0435\u0434\u0435\u043b\u0435\u043d\u0438\u0435 \u0442\u0438\u043f\u0430 \u0437\u0430\u043f\u0440\u043e\u0441\u0430"""
+        """Определение типа запроса"""
         query_lower = query.lower()
         
         programming_keywords = [
-            "\u043a\u043e\u0434", "\u043f\u0440\u043e\u0433\u0440\u0430\u043c\u0430", "function", "class", "def", "import", "bug", "error",
-            "python", "java", "javascript", "debug", "compile", "\u0430\u043b\u0433\u043e\u0440\u0438\u0442\u043c", "\u0444\u0443\u043d\u043a\u0446\u0456\u044f"
+            "код", "програма", "function", "class", "def", "import", "bug", "error",
+            "python", "java", "javascript", "debug", "compile", "алгоритм", "функція"
         ]
         
         legal_keywords = [
-            "\u0437\u0430\u043a\u043e\u043d", "\u0441\u0442\u0430\u0442\u0442\u044f", "\u043a\u043e\u0434\u0435\u043a\u0441", "\u043f\u043e\u0437\u043e\u0432", "\u0441\u043a\u0430\u0440\u0433\u0430", "\u0441\u0443\u0434", "\u043f\u0440\u0430\u0432\u043e", "\u0437\u0430\u043a\u043e\u043d\u043e\u0434\u0430\u0432\u0441\u0442\u0432\u043e",
-            "\u0434\u043e\u0433\u043e\u0432\u0456\u0440", "\u0443\u0433\u043e\u0434\u0430", "\u0432\u043b\u0430\u0441\u043d\u0456\u0441\u0442\u044c", "\u0432\u0456\u0434\u043f\u043e\u0432\u0456\u0434\u0430\u043b\u044c\u043d\u0456\u0441\u0442\u044c", "\u043d\u043e\u0440\u043c\u0430", "\u0440\u0435\u0433\u0443\u043b\u044e\u0432\u0430\u043d\u043d\u044f"
+            "закон", "стаття", "кодекс", "позов", "скарга", "суд", "право", "законодавство",
+            "договір", "угода", "власність", "відповідальність", "норма", "регулювання"
         ]
         
         programming_score = sum(1 for keyword in programming_keywords if keyword in query_lower)
@@ -477,13 +476,13 @@ class AIAgent:
             return "general"
     
     def query(self, user_query: str) -> AgentResponse:
-        """\u041e\u0441\u043d\u043e\u0432\u043d\u043e\u0439 \u043c\u0435\u0442\u043e\u0434 \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0438 \u0437\u0430\u043f\u0440\u043e\u0441\u0430"""
+        """Основной метод обработки запроса"""
         logger.info(f"Processing query: {user_query[:100]}...")
         
-        # \u041e\u043f\u0440\u0435\u0434\u0435\u043b\u0435\u043d\u0438\u0435 \u0442\u0438\u043f\u0430 \u0437\u0430\u043f\u0440\u043e\u0441\u0430
+        # Определение типа запроса
         query_type = self.detect_query_type(user_query)
         
-        # \u0412\u044b\u0431\u043e\u0440 \u0441\u043e\u043e\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0443\u044e\u0449\u0435\u0433\u043e \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u0447\u0438\u043a\u0430
+        # Выбор соответствующего обработчика
         if query_type == "programming":
             return self.handle_programming_query(user_query)
         elif query_type == "legal":
@@ -492,7 +491,7 @@ class AIAgent:
             return self.generate_response(user_query)
     
     def get_agent_status(self) -> Dict[str, Any]:
-        """\u041f\u043e\u043b\u0443\u0447\u0435\u043d\u0438\u0435 \u0441\u0442\u0430\u0442\u0443\u0441\u0430 \u0430\u0433\u0435\u043d\u0442\u0430"""
+        """Получение статуса агента"""
         try:
             return {
                 "model_loaded": self.model is not None,
@@ -512,16 +511,16 @@ class AIAgent:
             logger.error(f"Error getting agent status: {e}")
             return {"error": str(e)}
 
-# \u0424\u0443\u043d\u043a\u0446\u0438\u0438 \u0434\u043b\u044f \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u044f \u0432 \u0434\u0440\u0443\u0433\u0438\u0445 \u043c\u043e\u0434\u0443\u043b\u044f\u0445
+# Функции для использования в других модулях
 def create_ai_agent(model_path: Optional[str] = None) -> AIAgent:
-    """\u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u044d\u043a\u0437\u0435\u043c\u043f\u043b\u044f\u0440\u0430 AI-\u0430\u0433\u0435\u043d\u0442\u0430"""
+    """Создание экземпляра AI-агента"""
     return AIAgent(model_path)
 
 def quick_setup_agent(documents_path: str) -> AIAgent:
-    """\u0411\u044b\u0441\u0442\u0440\u0430\u044f \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430 \u0430\u0433\u0435\u043d\u0442\u0430 \u0441 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0430\u043c\u0438"""
+    """Быстрая настройка агента с документами"""
     agent = create_ai_agent()
     
-    # \u0414\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u0438\u0435 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u0432
+    # Добавление документов
     document_files = []
     for root, dirs, files in os.walk(documents_path):
         for file in files:

@@ -1,4 +1,3 @@
-
 """
 Модуль обработки документов
 Поддержка PDF, DOC, DOCX файлов с анализом содержания
@@ -42,7 +41,7 @@ class DocumentChunk:
 
 @dataclass
 class ProcessedDocument:
-    """\u041a\u043b\u0430\u0441\u0441 \u0434\u043b\u044f \u043f\u0440\u0435\u0434\u0441\u0442\u0430\u0432\u043b\u0435\u043d\u0438\u044f \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u0430\u043d\u043d\u043e\u0433\u043e \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0430"""
+    """Класс для представления обработанного документа"""
     file_path: str
     file_name: str
     file_type: str
@@ -52,21 +51,21 @@ class ProcessedDocument:
     document_hash: str = ""
     
 class DocumentProcessor:
-    """\u041e\u0441\u043d\u043e\u0432\u043d\u043e\u0439 \u043a\u043b\u0430\u0441\u0441 \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0438 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u0432"""
+    """Основной класс обработки документов"""
     
     def __init__(self):
         self.embedding_model = None
         self.vector_store = None
         self.processed_documents = []
         
-        # \u0418\u043d\u0438\u0446\u0438\u0430\u043b\u0438\u0437\u0430\u0446\u0438\u044f \u044d\u043c\u0431\u0435\u0434\u0434\u0438\u043d\u0433\u043e\u0432
+        # Инициализация эмбеддингов
         self._init_embedding_model()
         
-        # \u0418\u043d\u0438\u0446\u0438\u0430\u043b\u0438\u0437\u0430\u0446\u0438\u044f \u0432\u0435\u043a\u0442\u043e\u0440\u043d\u043e\u0433\u043e \u0445\u0440\u0430\u043d\u0438\u043b\u0438\u0449\u0430
+        # Инициализация векторного хранилища
         self._init_vector_store()
     
     def _init_embedding_model(self):
-        """\u0418\u043d\u0438\u0446\u0438\u0430\u043b\u0438\u0437\u0430\u0446\u0438\u044f \u043c\u043e\u0434\u0435\u043b\u0438 \u044d\u043c\u0431\u0435\u0434\u0434\u0438\u043d\u0433\u043e\u0432"""
+        """Инициализация модели эмбеддингов"""
         try:
             self.embedding_model = SentenceTransformer(config.vector.embedding_model)
             logger.info(f"Embedding model loaded: {config.vector.embedding_model}")
@@ -75,14 +74,14 @@ class DocumentProcessor:
             raise
     
     def _init_vector_store(self):
-        """\u0418\u043d\u0438\u0446\u0438\u0430\u043b\u0438\u0437\u0430\u0446\u0438\u044f ChromaDB"""
+        """Инициализация ChromaDB"""
         try:
-            # \u0421\u043e\u0437\u0434\u0430\u0435\u043c \u043a\u043b\u0438\u0435\u043d\u0442 Chroma
+            # Создаем клиент Chroma
             self.vector_store = chromadb.PersistentClient(
                 path=config.vector.persist_directory
             )
             
-            # \u041f\u043e\u043b\u0443\u0447\u0430\u0435\u043c \u0438\u043b\u0438 \u0441\u043e\u0437\u0434\u0430\u0435\u043c \u043a\u043e\u043b\u043b\u0435\u043a\u0446\u0438\u044e
+            # Получаем или создаем коллекцию
             self.collection = self.vector_store.get_or_create_collection(
                 name=config.vector.collection_name,
                 metadata={"hnsw:space": "cosine"}
@@ -94,7 +93,7 @@ class DocumentProcessor:
             raise
     
     def get_file_hash(self, file_path: str) -> str:
-        """\u041f\u043e\u043b\u0443\u0447\u0435\u043d\u0438\u0435 \u0445\u0435\u0448\u0430 \u0444\u0430\u0439\u043b\u0430 \u0434\u043b\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438 \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u0439"""
+        """Получение хеша файла для проверки изменений"""
         hash_md5 = hashlib.md5()
         with open(file_path, "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
@@ -102,11 +101,11 @@ class DocumentProcessor:
         return hash_md5.hexdigest()
     
     def is_supported_format(self, file_path: str) -> bool:
-        """\u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u043c\u043e\u0433\u043e \u0444\u043e\u0440\u043c\u0430\u0442\u0430 \u0444\u0430\u0439\u043b\u0430"""
+        """Проверка поддерживаемого формата файла"""
         return Path(file_path).suffix.lower() in config.data.supported_formats
     
     def detect_document_type(self, file_path: str) -> str:
-        """\u041e\u043f\u0440\u0435\u0434\u0435\u043b\u0435\u043d\u0438\u0435 \u0442\u0438\u043f\u0430 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0430 (programming, legal, general)"""
+        """Определение типа документа (programming, legal, general)"""
         file_ext = Path(file_path).suffix.lower()
         
         if file_ext in config.data.programming_extensions:
@@ -117,9 +116,9 @@ class DocumentProcessor:
             return "general"
     
     def extract_text_from_pdf(self, file_path: str) -> List[Tuple[str, int]]:
-        """\u0418\u0437\u0432\u043b\u0435\u0447\u0435\u043d\u0438\u0435 \u0442\u0435\u043a\u0441\u0442\u0430 \u0438\u0437 PDF \u0441 \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u0435\u0439 \u043e \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0430\u0445"""
+        """Извлечение текста из PDF с информацией о страницах"""
         try:
-            # \u0418\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0435\u043c pymupdf \u0434\u043b\u044f \u043b\u0443\u0447\u0448\u0435\u0433\u043e \u0438\u0437\u0432\u043b\u0435\u0447\u0435\u043d\u0438\u044f
+            # Используем pymupdf для лучшего извлечения
             doc = fitz.open(file_path)
             pages_text = []
             
@@ -127,7 +126,7 @@ class DocumentProcessor:
                 page = doc.load_page(page_num)
                 text = page.get_text()
                 
-                # \u041e\u0447\u0438\u0441\u0442\u043a\u0430 \u0442\u0435\u043a\u0441\u0442\u0430
+                # Очистка текста
                 text = self._clean_text(text)
                 
                 if text.strip():
@@ -138,11 +137,11 @@ class DocumentProcessor:
             
         except Exception as e:
             logger.error(f"Error extracting text from PDF {file_path}: {e}")
-            # Fallback \u043d\u0430 PyPDF2
+            # Fallback на PyPDF2
             return self._extract_pdf_fallback(file_path)
     
     def _extract_pdf_fallback(self, file_path: str) -> List[Tuple[str, int]]:
-        """\u0417\u0430\u043f\u0430\u0441\u043d\u043e\u0439 \u043c\u0435\u0442\u043e\u0434 \u0438\u0437\u0432\u043b\u0435\u0447\u0435\u043d\u0438\u044f \u0442\u0435\u043a\u0441\u0442\u0430 \u0438\u0437 PDF"""
+        """Запасной метод извлечения текста из PDF"""
         try:
             with open(file_path, 'rb') as file:
                 pdf_reader = PyPDF2.PdfReader(file)
@@ -161,9 +160,9 @@ class DocumentProcessor:
             return []
     
     def extract_text_from_docx(self, file_path: str) -> List[Tuple[str, int]]:
-        """\u0418\u0437\u0432\u043b\u0435\u0447\u0435\u043d\u0438\u0435 \u0442\u0435\u043a\u0441\u0442\u0430 \u0438\u0437 DOCX"""
+        """Извлечение текста из DOCX"""
         try:
-            # \u0418\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0435\u043c unstructured \u0434\u043b\u044f \u043b\u0443\u0447\u0448\u0435\u0433\u043e \u0438\u0437\u0432\u043b\u0435\u0447\u0435\u043d\u0438\u044f
+            # Используем unstructured для лучшего извлечения
             elements = partition(filename=file_path)
             
             text_content = []
@@ -175,7 +174,7 @@ class DocumentProcessor:
             
         except Exception as e:
             logger.error(f"Error extracting text from DOCX {file_path}: {e}")
-            # Fallback \u043d\u0430 docx2txt
+            # Fallback на docx2txt
             try:
                 text = docx2txt_process(file_path)
                 text = self._clean_text(text)
@@ -185,14 +184,14 @@ class DocumentProcessor:
                 return []
     
     def extract_text_from_txt(self, file_path: str) -> List[Tuple[str, int]]:
-        """\u0418\u0437\u0432\u043b\u0435\u0447\u0435\u043d\u0438\u0435 \u0442\u0435\u043a\u0441\u0442\u0430 \u0438\u0437 TXT \u0444\u0430\u0439\u043b\u043e\u0432"""
+        """Извлечение текста из TXT файлов"""
         try:
             with open(file_path, 'r', encoding='utf-8') as file:
                 text = file.read()
                 text = self._clean_text(text)
                 return [(text, None)] if text.strip() else []
         except UnicodeDecodeError:
-            # \u041f\u0440\u043e\u0431\u0443\u0435\u043c \u0434\u0440\u0443\u0433\u0438\u0435 \u043a\u043e\u0434\u0438\u0440\u043e\u0432\u043a\u0438
+            # Пробуем другие кодировки
             for encoding in ['cp1251', 'latin1', 'ascii']:
                 try:
                     with open(file_path, 'r', encoding=encoding) as file:
@@ -204,20 +203,20 @@ class DocumentProcessor:
             return []
     
     def _clean_text(self, text: str) -> str:
-        """\u041e\u0447\u0438\u0441\u0442\u043a\u0430 \u0442\u0435\u043a\u0441\u0442\u0430 \u043e\u0442 \u043b\u0438\u0448\u043d\u0438\u0445 \u0441\u0438\u043c\u0432\u043e\u043b\u043e\u0432 \u0438 \u043f\u0440\u043e\u0431\u0435\u043b\u043e\u0432"""
-        # \u0423\u0434\u0430\u043b\u0435\u043d\u0438\u0435 \u043b\u0438\u0448\u043d\u0438\u0445 \u043f\u0440\u043e\u0431\u0435\u043b\u043e\u0432 \u0438 \u043f\u0435\u0440\u0435\u043d\u043e\u0441\u043e\u0432 \u0441\u0442\u0440\u043e\u043a
+        """Очистка текста от лишних символов и пробелов"""
+        # Удаление лишних пробелов и переносов строк
         text = re.sub(r'\s+', ' ', text)
         
-        # \u0423\u0434\u0430\u043b\u0435\u043d\u0438\u0435 \u0441\u043f\u0435\u0446\u0438\u0430\u043b\u044c\u043d\u044b\u0445 \u0441\u0438\u043c\u0432\u043e\u043b\u043e\u0432, \u043d\u043e \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u0435 \u043f\u0443\u043d\u043a\u0442\u0443\u0430\u0446\u0438\u0438
+        # Удаление специальных символов, но сохранение пунктуации
         text = re.sub(r'[^\w\s\.\,\!\?\;\:\-\(\)\[\]\{\}\"'\/\\\@#\$\%\^\&\*\+\=\|\~\`]', ' ', text)
         
-        # \u0423\u0434\u0430\u043b\u0435\u043d\u0438\u0435 \u043c\u043d\u043e\u0436\u0435\u0441\u0442\u0432\u0435\u043d\u043d\u044b\u0445 \u043f\u0440\u043e\u0431\u0435\u043b\u043e\u0432
+        # Удаление множественных пробелов
         text = re.sub(r'\s+', ' ', text)
         
         return text.strip()
     
     def split_text_into_chunks(self, text: str, metadata: Dict[str, Any]) -> List[DocumentChunk]:
-        """\u0420\u0430\u0437\u0434\u0435\u043b\u0435\u043d\u0438\u0435 \u0442\u0435\u043a\u0441\u0442\u0430 \u043d\u0430 \u0447\u0430\u043d\u043a\u0438 \u0441 \u043f\u0435\u0440\u0435\u043a\u0440\u044b\u0442\u0438\u0435\u043c"""
+        """Разделение текста на чанки с перекрытием"""
         if not text.strip():
             return []
         
@@ -232,7 +231,7 @@ class DocumentProcessor:
             
             chunk_text = text[start:end]
             
-            # \u0421\u043e\u0437\u0434\u0430\u0435\u043c \u043c\u0435\u0442\u0430\u0434\u0430\u043d\u043d\u044b\u0435 \u0434\u043b\u044f \u0447\u0430\u043d\u043a\u0430
+            # Создаем метаданные для чанка
             chunk_metadata = metadata.copy()
             chunk_metadata.update({
                 "chunk_start": start,
@@ -254,7 +253,7 @@ class DocumentProcessor:
         return chunks
     
     def process_single_document(self, file_path: str) -> Optional[ProcessedDocument]:
-        """\u041e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0430 \u043e\u0434\u043d\u043e\u0433\u043e \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0430"""
+        """Обработка одного документа"""
         if not os.path.exists(file_path):
             logger.error(f"File not found: {file_path}")
             return None
@@ -274,7 +273,7 @@ class DocumentProcessor:
         
         logger.info(f"Processing document: {file_path} ({document_type})")
         
-        # \u0418\u0437\u0432\u043b\u0435\u0447\u0435\u043d\u0438\u0435 \u0442\u0435\u043a\u0441\u0442\u0430
+        # Извлечение текста
         pages_text = []
         
         try:
@@ -292,7 +291,7 @@ class DocumentProcessor:
                 logger.warning(f"No text extracted from: {file_path}")
                 return None
             
-            # \u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u0447\u0430\u043d\u043a\u043e\u0432
+            # Создание чанков
             all_chunks = []
             for text, page_num in pages_text:
                 metadata = {
@@ -308,7 +307,7 @@ class DocumentProcessor:
                 chunks = self.split_text_into_chunks(text, metadata)
                 all_chunks.extend(chunks)
             
-            # \u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u0430\u043d\u043d\u043e\u0433\u043e \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0430
+            # Создание обработанного документа
             processed_doc = ProcessedDocument(
                 file_path=file_path,
                 file_name=Path(file_path).name,
@@ -326,7 +325,7 @@ class DocumentProcessor:
             return None
     
     def process_directory(self, directory_path: str, recursive: bool = True) -> List[ProcessedDocument]:
-        """\u041e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0430 \u0432\u0441\u0435\u0445 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u0432 \u0432 \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440\u0438\u0438"""
+        """Обработка всех документов в директории"""
         processed_docs = []
         directory = Path(directory_path)
         
@@ -334,7 +333,7 @@ class DocumentProcessor:
             logger.error(f"Directory not found: {directory_path}")
             return processed_docs
         
-        # \u041f\u043e\u0438\u0441\u043a \u0444\u0430\u0439\u043b\u043e\u0432
+        # Поиск файлов
         if recursive:
             file_pattern = "**/*"
         else:
@@ -346,7 +345,7 @@ class DocumentProcessor:
         
         logger.info(f"Found {len(files)} documents to process")
         
-        # \u041e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0430 \u043a\u0430\u0436\u0434\u043e\u0433\u043e \u0444\u0430\u0439\u043b\u0430
+        # Обработка каждого файла
         for file_path in files:
             processed_doc = self.process_single_document(str(file_path))
             if processed_doc:
@@ -356,7 +355,7 @@ class DocumentProcessor:
         return processed_docs
     
     def create_embeddings(self, documents: List[ProcessedDocument]) -> bool:
-        """\u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u044d\u043c\u0431\u0435\u0434\u0434\u0438\u043d\u0433\u043e\u0432 \u0434\u043b\u044f \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u0432 \u0438 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u0435 \u0432 \u0432\u0435\u043a\u0442\u043e\u0440\u043d\u043e\u0435 \u0445\u0440\u0430\u043d\u0438\u043b\u0438\u0449\u0435"""
+        """Создание эмбеддингов для документов и сохранение в векторное хранилище"""
         try:
             all_texts = []
             all_metadatas = []
@@ -386,7 +385,7 @@ class DocumentProcessor:
             
             logger.info(f"Creating embeddings for {len(all_texts)} chunks")
             
-            # \u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u044d\u043c\u0431\u0435\u0434\u0434\u0438\u043d\u0433\u043e\u0432
+            # Создание эмбеддингов
             embeddings = self.embedding_model.encode(
                 all_texts,
                 batch_size=32,
@@ -394,7 +393,7 @@ class DocumentProcessor:
                 convert_to_tensor=False
             )
             
-            # \u0421\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u0435 \u0432 ChromaDB
+            # Сохранение в ChromaDB
             self.collection.add(
                 embeddings=embeddings.tolist(),
                 documents=all_texts,
@@ -410,7 +409,7 @@ class DocumentProcessor:
             return False
     
     def search_similar_documents(self, query: str, n_results: int = 5) -> List[Dict[str, Any]]:
-        """\u041f\u043e\u0438\u0441\u043a \u043f\u043e\u0445\u043e\u0436\u0438\u0445 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u0432 \u043f\u043e \u0437\u0430\u043f\u0440\u043e\u0441\u0443"""
+        """Поиск похожих документов по запросу"""
         try:
             query_embedding = self.embedding_model.encode([query])
             
@@ -419,7 +418,7 @@ class DocumentProcessor:
                 n_results=n_results
             )
             
-            # \u0424\u043e\u0440\u043c\u0430\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435 \u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442\u043e\u0432
+            # Форматирование результатов
             formatted_results = []
             for i in range(len(results['documents'][0])):
                 result = {
@@ -437,7 +436,7 @@ class DocumentProcessor:
             return []
     
     def get_document_stats(self) -> Dict[str, Any]:
-        """\u041f\u043e\u043b\u0443\u0447\u0435\u043d\u0438\u0435 \u0441\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0438 \u043f\u043e \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u0430\u043d\u043d\u044b\u043c \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0430\u043c"""
+        """Получение статистики по обработанным документам"""
         try:
             collection_count = self.collection.count()
             
@@ -451,13 +450,13 @@ class DocumentProcessor:
             logger.error(f"Error getting stats: {e}")
             return {}
 
-# \u0424\u0443\u043d\u043a\u0446\u0438\u0438 \u0434\u043b\u044f \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u044f \u0432 \u0434\u0440\u0443\u0433\u0438\u0445 \u043c\u043e\u0434\u0443\u043b\u044f\u0445
+# Функции для использования в других модулях
 def create_document_processor() -> DocumentProcessor:
-    """\u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u044d\u043a\u0437\u0435\u043c\u043f\u043b\u044f\u0440\u0430 \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u0447\u0438\u043a\u0430 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u0432"""
+    """Создание экземпляра обработчика документов"""
     return DocumentProcessor()
 
 def process_document_batch(file_paths: List[str]) -> List[ProcessedDocument]:
-    """\u041f\u0430\u043a\u0435\u0442\u043d\u0430\u044f \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0430 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u0432"""
+    """Пакетная обработка документов"""
     processor = create_document_processor()
     processed_docs = []
     
@@ -466,7 +465,7 @@ def process_document_batch(file_paths: List[str]) -> List[ProcessedDocument]:
         if doc:
             processed_docs.append(doc)
     
-    # \u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u044d\u043c\u0431\u0435\u0434\u0434\u0438\u043d\u0433\u043e\u0432
+    # Создание эмбеддингов
     if processed_docs:
         processor.create_embeddings(processed_docs)
     
