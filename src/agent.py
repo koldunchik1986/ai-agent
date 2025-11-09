@@ -76,7 +76,7 @@ class AIAgent:
                     config.model.model_name,
                     cache_dir=config.model.cache_dir,
                     torch_dtype=getattr(torch, config.model.torch_dtype),
-                    device_map="auto",
+                    device_map="sequential",
                     trust_remote_code=config.model.trust_remote_code,
                     use_cache=config.model.use_cache
                 )
