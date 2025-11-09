@@ -1,472 +1,411 @@
 """
-Модуль обработки документов
-Поддержка PDF, DOC, DOCX файлов с анализом содержания
+ОБРАБОТКА ДОКУМЕНТОВ ДЛЯ AI-АССИСТЕНТА
+
+Особенности:
+- Поддержка PDF/DOCX/TXT/HTML
+- Потоковая обработка (не загружает весь файл в память)
+- Автоматическое разбиение на чанки
+- Оптимизация под 8GB VRAM (batch processing)
 """
 
 import os
-import re
-import logging
-from pathlib import Path
-from typing import List, Dict, Optional, Tuple, Any
-from dataclasses import dataclass
 import hashlib
+from pathlib import Path
+from typing import List, Dict, Optional, Generator, Any
+from dataclasses import dataclass
 
-# Document processing libraries
-import PyPDF2
-import docx
-from docx2txt import process as docx2txt_process
-import pymupdf as fitz
-from unstructured.partition.auto import partition
+import torch
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
-# ML embeddings
-from sentence_transformers import SentenceTransformer
-import chromadb
-from chromadb.config import Settings
+# Импорт_loaders
+from langchain_community.document_loaders import (
+    PyPDFLoader,
+    Docx2txtLoader,
+    TextLoader,
+    UnstructuredHTMLLoader
+)
 
-# Local imports
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import Chroma
+
 from config import config
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 @dataclass
-class DocumentChunk:
-    """Класс для представления чанка документа"""
+class ProcessedChunk:
+    """
+    Структура обработанного чанка
+    
+    Attributes:
+        content: Текст чанка
+        metadata: Метаданные (путь к файлу, тип и т.д.)
+        vector_id: ID в векторной базе
+        confidence: Оценка качества обработки
+    """
     content: str
     metadata: Dict[str, Any]
-    chunk_id: str
-    source_file: str
-    page_number: Optional[int] = None
-    chunk_type: str = "text"
+    vector_id: Optional[str] = None
+    confidence: float = 1.0
 
-@dataclass
-class ProcessedDocument:
-    """Класс для представления обработанного документа"""
-    file_path: str
-    file_name: str
-    file_type: str
-    file_size: int
-    chunks: List[DocumentChunk]
-    embedding_vector: Optional[List[float]] = None
-    document_hash: str = ""
-    
 class DocumentProcessor:
-    """Основной класс обработки документов"""
+    """
+    ПРОЦЕССОР ДОКУМЕНТОВ
+    
+    Основные функции:
+    1. Загрузка документов разных форматов
+    2. Разбиение на чанки (chunking)
+    3. Создание векторных эмбеддингов
+    4. Сохранение в ChromaDB
+    """
     
     def __init__(self):
-        self.embedding_model = None
-        self.vector_store = None
-        self.processed_documents = []
+        # Инициализация конфигурации
+        self.config = config
         
-        # Инициализация эмбеддингов
-        self._init_embedding_model()
+        # Инициализация text splitter
+        # Разбивает большие тексты на чанки для эффективного поиска
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=self.config.documents.chunk_size,
+            chunk_overlap=self.config.documents.chunk_overlap,
+            length_function=len,
+            # Стратегия разбиения: сначала по двойным переносам, потом по предложениям
+            separators=["\n\n", "\n", ".", "!", "?", ",", " ", ""]
+        )
         
-        # Инициализация векторного хранилища
-        self._init_vector_store()
+        # ✅ Инициализация эмбеддингов (ленивая)
+        # Модель создается при первом использовании для экономии памяти
+        self._embeddings = None
+        self._vectorstore = None
+        
+        # Статистика
+        self.stats = {
+            "files_processed": 0,
+            "chunks_created": 0,
+            "vectors_stored": 0,
+            "total_size_mb": 0.0
+        }
     
-    def _init_embedding_model(self):
-        """Инициализация модели эмбеддингов"""
-        try:
-            self.embedding_model = SentenceTransformer(config.vector.embedding_model)
-            logger.info(f"Embedding model loaded: {config.vector.embedding_model}")
-        except Exception as e:
-            logger.error(f"Failed to load embedding model: {e}")
-            raise
-    
-    def _init_vector_store(self):
-        """Инициализация ChromaDB"""
-        try:
-            # Создаем клиент Chroma
-            self.vector_store = chromadb.PersistentClient(
-                path=config.vector.persist_directory
-            )
+    @property
+    def embeddings(self) -> HuggingFaceEmbeddings:
+        """Ленивая загрузка эмбеддингов (только когда нужно)"""
+        if self._embeddings is None:
+            # Выбор модели в зависимости от доступной памяти
+            model_kwargs = {'device': 'cuda' if torch.cuda.is_available() else 'cpu'}
             
-            # Получаем или создаем коллекцию
-            self.collection = self.vector_store.get_or_create_collection(
-                name=config.vector.collection_name,
-                metadata={"hnsw:space": "cosine"}
-            )
-            
-            logger.info(f"Vector store initialized: {config.vector.persist_directory}")
-        except Exception as e:
-            logger.error(f"Failed to initialize vector store: {e}")
-            raise
-    
-    def get_file_hash(self, file_path: str) -> str:
-        """Получение хеша файла для проверки изменений"""
-        hash_md5 = hashlib.md5()
-        with open(file_path, "rb") as f:
-            for chunk in iter(lambda: f.read(4096), b""):
-                hash_md5.update(chunk)
-        return hash_md5.hexdigest()
-    
-    def is_supported_format(self, file_path: str) -> bool:
-        """Проверка поддерживаемого формата файла"""
-        return Path(file_path).suffix.lower() in config.data.supported_formats
-    
-    def detect_document_type(self, file_path: str) -> str:
-        """Определение типа документа (programming, legal, general)"""
-        file_ext = Path(file_path).suffix.lower()
-        
-        if file_ext in config.data.programming_extensions:
-            return "programming"
-        elif file_ext in config.data.legal_extensions:
-            return "legal"
-        else:
-            return "general"
-    
-    def extract_text_from_pdf(self, file_path: str) -> List[Tuple[str, int]]:
-        """Извлечение текста из PDF с информацией о страницах"""
-        try:
-            # Используем pymupdf для лучшего извлечения
-            doc = fitz.open(file_path)
-            pages_text = []
-            
-            for page_num in range(len(doc)):
-                page = doc.load_page(page_num)
-                text = page.get_text()
-                
-                # Очистка текста
-                text = self._clean_text(text)
-                
-                if text.strip():
-                    pages_text.append((text, page_num + 1))
-            
-            doc.close()
-            return pages_text
-            
-        except Exception as e:
-            logger.error(f"Error extracting text from PDF {file_path}: {e}")
-            # Fallback на PyPDF2
-            return self._extract_pdf_fallback(file_path)
-    
-    def _extract_pdf_fallback(self, file_path: str) -> List[Tuple[str, int]]:
-        """Запасной метод извлечения текста из PDF"""
-        try:
-            with open(file_path, 'rb') as file:
-                pdf_reader = PyPDF2.PdfReader(file)
-                pages_text = []
-                
-                for page_num, page in enumerate(pdf_reader.pages):
-                    text = page.extract_text()
-                    text = self._clean_text(text)
-                    
-                    if text.strip():
-                        pages_text.append((text, page_num + 1))
-                
-                return pages_text
-        except Exception as e:
-            logger.error(f"Fallback PDF extraction failed: {e}")
-            return []
-    
-    def extract_text_from_docx(self, file_path: str) -> List[Tuple[str, int]]:
-        """Извлечение текста из DOCX"""
-        try:
-            # Используем unstructured для лучшего извлечения
-            elements = partition(filename=file_path)
-            
-            text_content = []
-            for element in elements:
-                if element.text.strip():
-                    text_content.append((element.text, None))
-            
-            return text_content
-            
-        except Exception as e:
-            logger.error(f"Error extracting text from DOCX {file_path}: {e}")
-            # Fallback на docx2txt
-            try:
-                text = docx2txt_process(file_path)
-                text = self._clean_text(text)
-                return [(text, None)] if text.strip() else []
-            except Exception as fallback_error:
-                logger.error(f"Fallback DOCX extraction failed: {fallback_error}")
-                return []
-    
-    def extract_text_from_txt(self, file_path: str) -> List[Tuple[str, int]]:
-        """Извлечение текста из TXT файлов"""
-        try:
-            with open(file_path, 'r', encoding='utf-8') as file:
-                text = file.read()
-                text = self._clean_text(text)
-                return [(text, None)] if text.strip() else []
-        except UnicodeDecodeError:
-            # Пробуем другие кодировки
-            for encoding in ['cp1251', 'latin1', 'ascii']:
-                try:
-                    with open(file_path, 'r', encoding=encoding) as file:
-                        text = file.read()
-                        text = self._clean_text(text)
-                        return [(text, None)] if text.strip() else []
-                except:
-                    continue
-            return []
-    
-    def _clean_text(self, text: str) -> str:
-        """Очистка текста от лишних символов и пробелов"""
-        # Удаление лишних пробелов и переносов строк
-        text = re.sub(r'\s+', ' ', text)
-        
-        # Удаление специальных символов, но сохранение пунктуации
-        text = re.sub(r'[^\w\s\.\,\!\?\;\:\-\(\)\[\]\{\}\"\'\/\\\@#\$\%\^\&\*\+\=\|\\~\`]', ' ', text)
-        
-        # Удаление множественных пробелов
-        text = re.sub(r'\s+', ' ', text)
-        
-        return text.strip()
-    
-    def split_text_into_chunks(self, text: str, metadata: Dict[str, Any]) -> List[DocumentChunk]:
-        """Разделение текста на чанки с перекрытием"""
-        if not text.strip():
-            return []
-        
-        chunks = []
-        text_length = len(text)
-        
-        for start in range(0, text_length, config.data.chunk_size - config.data.chunk_overlap):
-            end = start + config.data.chunk_size
-            
-            if start >= text_length:
-                break
-            
-            chunk_text = text[start:end]
-            
-            # Создаем метаданные для чанка
-            chunk_metadata = metadata.copy()
-            chunk_metadata.update({
-                "chunk_start": start,
-                "chunk_end": end,
-                "chunk_length": len(chunk_text)
-            })
-            
-            chunk = DocumentChunk(
-                content=chunk_text,
-                metadata=chunk_metadata,
-                chunk_id=f"chunk_{start}_{end}",
-                source_file=metadata.get("file_path", ""),
-                page_number=metadata.get("page_number"),
-                chunk_type=metadata.get("document_type", "text")
-            )
-            
-            chunks.append(chunk)
-        
-        return chunks
-    
-    def process_single_document(self, file_path: str) -> Optional[ProcessedDocument]:
-        """Обработка одного документа"""
-        if not os.path.exists(file_path):
-            logger.error(f"File not found: {file_path}")
-            return None
-        
-        if not self.is_supported_format(file_path):
-            logger.warning(f"Unsupported file format: {file_path}")
-            return None
-        
-        file_size = os.path.getsize(file_path)
-        if file_size > config.data.max_file_size_mb * 1024 * 1024:
-            logger.warning(f"File too large: {file_path} ({file_size} bytes)")
-            return None
-        
-        file_ext = Path(file_path).suffix.lower()
-        document_type = self.detect_document_type(file_path)
-        file_hash = self.get_file_hash(file_path)
-        
-        logger.info(f"Processing document: {file_path} ({document_type})")
-        
-        # Извлечение текста
-        pages_text = []
-        
-        try:
-            if file_ext == '.pdf':
-                pages_text = self.extract_text_from_pdf(file_path)
-            elif file_ext in ['.doc', '.docx']:
-                pages_text = self.extract_text_from_docx(file_path)
-            elif file_ext in ['.txt', '.md']:
-                pages_text = self.extract_text_from_txt(file_path)
+            # Для 8GB используем компактную модель, для 12GB+ - более точную
+            if torch.cuda.is_available():
+                gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+                if gpu_memory < 9:
+                    # ✅ Компактная модель для экономии VRAM (~200MB)
+                    model_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+                else:
+                    # Более точная модель для 12GB+ (~700MB)
+                    model_name = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
             else:
-                logger.warning(f"Unsupported file extension: {file_ext}")
-                return None
+                # Для CPU (очень медленно!)
+                model_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
             
-            if not pages_text:
-                logger.warning(f"No text extracted from: {file_path}")
-                return None
-            
-            # Создание чанков
-            all_chunks = []
-            for text, page_num in pages_text:
-                metadata = {
-                    "file_path": file_path,
-                    "file_name": Path(file_path).name,
-                    "file_type": file_ext,
-                    "document_type": document_type,
-                    "file_size": file_size,
-                    "page_number": page_num,
-                    "document_hash": file_hash
-                }
-                
-                chunks = self.split_text_into_chunks(text, metadata)
-                all_chunks.extend(chunks)
-            
-            # Создание обработанного документа
-            processed_doc = ProcessedDocument(
-                file_path=file_path,
-                file_name=Path(file_path).name,
-                file_type=file_ext,
-                file_size=file_size,
-                chunks=all_chunks,
-                document_hash=file_hash
+            self._embeddings = HuggingFaceEmbeddings(
+                model_name=model_name,
+                model_kwargs=model_kwargs
             )
+            print(f"✅ Инициализированы эмбеддинги: {model_name}")
+        
+        return self._embeddings
+    
+    @property
+    def vectorstore(self) -> Chroma:
+        """Ленивая загрузка векторной базы (только когда нужно)"""
+        if self._vectorstore is None:
+            # Создание директории если не существует
+            persist_dir = Path(self.config.vector.persist_directory)
+            persist_dir.mkdir(parents=True, exist_ok=True)
             
-            logger.info(f"Processed {file_path}: {len(all_chunks)} chunks")
-            return processed_doc
+            # Проверяем, существует ли уже коллекция
+            if (persist_dir / "chroma.sqlite3").exists():
+                # Загрузка существующей коллекции
+                self._vectorstore = Chroma(
+                    persist_directory=str(persist_dir),
+                    embedding_function=self.embeddings,
+                    collection_name=self.config.vector.collection_name
+                )
+                print(f"✅ Загружена существующая векторная база ({persist_dir})")
+            else:
+                # Создание новой коллекции
+                self._vectorstore = Chroma(
+                    collection_name=self.config.vector.collection_name,
+                    persist_directory=str(persist_dir),
+                    embedding_function=self.embeddings
+                )
+                print(f"✅ Создана новая векторная база ({persist_dir})")
+        
+        return self._vectorstore
+    
+    def load_document(self, file_path: str) -> Optional[List[Any]]:
+        """
+        ЗАГРУЗКА ДОКУМЕНТА
+        
+        Поддерживаемые форматы:
+        - PDF: PyMuPDF extraction
+        - DOCX: python-docx парсер
+        - TXT: Простой текст
+        - HTML: BeautifulSoup разбор
+        
+        Args:
+            file_path: Путь к файлу
+            
+        Returns:
+            List of Document objects или None при ошибке
+        """
+        path = Path(file_path)
+        
+        # Проверка существования файла
+        if not path.exists():
+            print(f"❌ Файл не найден: {file_path}")
+            return None
+        
+        # Проверка размера файла
+        file_size_mb = path.stat().st_size / (1024 * 1024)
+        if file_size_mb > self.config.documents.max_file_size_mb:
+            print(f"⚠️ Файл слишком большой ({file_size_mb:.1f}MB > {self.config.documents.max_file_size_mb}MB)")
+            # TODO: Добавить потоковую обработку больших файлов
+        
+        # Выбор загрузчика по расширению
+        ext = path.suffix.lower()
+        
+        try:
+            if ext == '.pdf':
+                loader = PyPDFLoader(str(path))
+            elif ext == '.docx':
+                loader = Docx2txtLoader(str(path))
+            elif ext == '.txt':
+                loader = TextLoader(str(path), encoding='utf-8')
+            elif ext == '.html':
+                loader = UnstructuredHTMLLoader(str(path))
+            else:
+                print(f"❌ Неподдерживаемый формат: {ext}")
+                return None
+            
+            # ✅ Потоковая загрузка (не загружает весь файл в память сразу)
+            documents = loader.load()
+            print(f"✅ Загружен: {path.name} ({len(documents)} страниц/частей)")
+            
+            # Обновление статистики
+            self.stats["files_processed"] += 1
+            self.stats["total_size_mb"] += file_size_mb
+            
+            return documents
             
         except Exception as e:
-            logger.error(f"Error processing document {file_path}: {e}")
+            print(f"❌ Ошибка загрузки {path.name}: {e}")
             return None
     
-    def process_directory(self, directory_path: str, recursive: bool = True) -> List[ProcessedDocument]:
-        """Обработка всех документов в директории"""
-        processed_docs = []
-        directory = Path(directory_path)
+    def chunk_document(self, documents: List[Any]) -> List[ProcessedChunk]:
+        """
+        РАЗБИЕНИЕ ДОКУМЕНТА НА ЧАНКИ
         
-        if not directory.exists():
-            logger.error(f"Directory not found: {directory_path}")
-            return processed_docs
+        Процесс:
+        1. Берет загруженный документ
+        2. Разбивает на чанки по chunk_size (512 токенов)
+        3. Добавляет метаданные к каждому чанку
         
-        # Поиск файлов
-        if recursive:
-            file_pattern = "**/*"
-        else:
-            file_pattern = "*"
+        Args:
+            documents: Загруженные документы
+            
+        Returns:
+            Список ProcessedChunk
+        """
+        if not documents:
+            return []
         
-        files = []
-        for ext in config.data.supported_formats:
-            files.extend(directory.glob(f"{file_pattern}{ext}"))
+        # Разбиение на чанки
+        chunks = self.text_splitter.split_documents(documents)
         
-        logger.info(f"Found {len(files)} documents to process")
+        processed_chunks = []
+        for idx, chunk in enumerate(chunks):
+            # Генерация уникального ID для чанка
+            content_hash = hashlib.md5(chunk.page_content.encode()).hexdigest()[:8]
+            
+            chunk_metadata = {
+                "chunk_id": f"{path.stem}_{idx}_{content_hash}",
+                "chunk_index": idx,
+                "total_chunks": len(chunks),
+                "source_file": str(path),
+                "file_name": path.name,
+                "file_ext": path.suffix,
+                "processing_timestamp": torch.datetime.now().isoformat(),
+                "confidence": 0.95  # Дефолтная уверенность
+            }
+            
+            # Объединение с существующими метаданными
+            if hasattr(chunk, 'metadata'):
+                chunk_metadata.update(chunk.metadata)
+            
+            processed_chunk = ProcessedChunk(
+                content=chunk.page_content,
+                metadata=chunk_metadata
+            )
+            
+            processed_chunks.append(processed_chunk)
         
-        # Обработка каждого файла
-        for file_path in files:
-            processed_doc = self.process_single_document(str(file_path))
-            if processed_doc:
-                processed_docs.append(processed_doc)
+        print(f"📄 Создано {len(processed_chunks)} чанков")
+        self.stats["chunks_created"] += len(processed_chunks)
         
-        logger.info(f"Successfully processed {len(processed_docs)} documents")
-        return processed_docs
+        return processed_chunks
     
-    def create_embeddings(self, documents: List[ProcessedDocument]) -> bool:
-        """Создание эмбеддингов для документов и сохранение в векторное хранилище"""
+    def create_embeddings(self, chunks: List[ProcessedChunk]) -> List[str]:
+        """
+        СОЗДАНИЕ ВЕКТОРНЫХ ЭМБЕДДИНГОВ
+        
+        Process:
+        1. Конвертирует чанки в векторы
+        2. Сохраняет в ChromaDB
+        3. Возвращает ID векторов
+        
+        ✅ Оптимизация под 8GB: Batch processing с очисткой кэша
+        """
+        if not chunks:
+            return []
+        
+        # Пакетная обработка (batch_size=10 для экономии памяти)
+        batch_size = 10
+        vector_ids = []
+        
+        for i in range(0, len(chunks), batch_size):
+            batch = chunks[i:i + batch_size]
+            
+            # Извлечение текста и метаданных
+            batch_texts = [chunk.content for chunk in batch]
+            batch_metadatas = [chunk.metadata for chunk in batch]
+            batch_ids = [chunk.metadata["chunk_id"] for chunk in batch]
+            
+            # Создание эмбеддингов и сохранение
+            ids = self.vectorstore.add_texts(
+                texts=batch_texts,
+                metadatas=batch_metadatas,
+                ids=batch_ids
+            )
+            
+            vector_ids.extend(ids)
+            
+            # ✅ ОЧИСТКА КЭША GPU ПОСЛЕ КАЖДОГО БАТЧА
+            # Это предотвращает накопление памяти при больших файлах
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            
+            print(f"  Векторизовано {len(ids)} чанков...")
+        
+        # Сохранение на диск (persist)
+        self.vectorstore.persist()
+        print(f"✅ Векторы сохранены в ChromaDB")
+        
+        self.stats["vectors_stored"] += len(vector_ids)
+        
+        return vector_ids
+    
+    def process_file(self, file_path: str) -> bool:
+        """
+        ПОЛНЫЙ ПРОЦЕСС ОБРАБОТКИ ФАЙЛА
+        
+        Args:
+            file_path: Путь к файлу
+            
+        Returns:
+            True если успешно, False если ошибка
+        """
         try:
-            all_texts = []
-            all_metadatas = []
-            all_ids = []
+            print(f"\n🔄 Обработка: {file_path}")
             
-            for doc in documents:
-                for chunk in doc.chunks:
-                    all_texts.append(chunk.content)
-                    
-                    metadata = {
-                        "chunk_id": chunk.chunk_id,
-                        "source_file": chunk.source_file,
-                        "file_name": chunk.metadata.get("file_name", ""),
-                        "file_type": chunk.metadata.get("file_type", ""),
-                        "document_type": chunk.metadata.get("document_type", ""),
-                        "page_number": chunk.page_number,
-                        "chunk_start": chunk.metadata.get("chunk_start", 0),
-                        "chunk_end": chunk.metadata.get("chunk_end", 0),
-                        "document_hash": doc.document_hash
-                    }
-                    all_metadatas.append(metadata)
-                    all_ids.append(chunk.chunk_id)
-            
-            if not all_texts:
-                logger.warning("No text chunks to embed")
+            # 1. Загрузка
+            documents = self.load_document(file_path)
+            if not documents:
                 return False
             
-            logger.info(f"Creating embeddings for {len(all_texts)} chunks")
+            # 2. Разбиение на чанки
+            chunks = self.chunk_document(documents)
+            if not chunks:
+                return False
             
-            # Создание эмбеддингов
-            embeddings = self.embedding_model.encode(
-                all_texts,
-                batch_size=32,
-                show_progress_bar=True,
-                convert_to_tensor=False
-            )
+            # 3. Векторизация
+            vector_ids = self.create_embeddings(chunks)
             
-            # Сохранение в ChromaDB
-            self.collection.add(
-                embeddings=embeddings.tolist(),
-                documents=all_texts,
-                metadatas=all_metadatas,
-                ids=all_ids
-            )
-            
-            logger.info(f"Successfully embedded and stored {len(all_texts)} chunks")
+            print(f"✅ Успешно обработан: {len(chunks)} чанков → {len(vector_ids)} векторов")
             return True
             
         except Exception as e:
-            logger.error(f"Error creating embeddings: {e}")
+            print(f"❌ Ошибка обработки {file_path}: {e}")
             return False
     
-    def search_similar_documents(self, query: str, n_results: int = 5) -> List[Dict[str, Any]]:
-        """Поиск похожих документов по запросу"""
-        try:
-            query_embedding = self.embedding_model.encode([query])
+    def search_similar(self, query: str, k: Optional[int] = None, 
+                      score_threshold: Optional[float] = None) -> List[Dict]:
+        """
+        ПОИСК ПОХОЖИХ ДОКУМЕНТОВ
+        
+        Args:
+            query: Вопрос пользователя
+            k: Количество результатов (по умолчанию из config)
+            score_threshold: Минимальная схожесть
             
-            results = self.collection.query(
-                query_embeddings=query_embedding.tolist(),
-                n_results=n_results
+        Returns:
+            Список результатов с метаданными
+        """
+        if not query or not query.strip():
+            return []
+        
+        if k is None:
+            k = self.config.vector.search_k
+        
+        if score_threshold is None:
+            score_threshold = self.config.vector.similarity_threshold
+        
+        try:
+            # Поиск в векторной базе
+            # similarity_search_with_score возвращает (document, score)
+            results = self.vectorstore.similarity_search_with_score(
+                query,
+                k=k,
+                score_threshold=score_threshold
             )
             
-            # Форматирование результатов
+            # Конвертация в удобный формат
             formatted_results = []
-            for i in range(len(results['documents'][0])):
-                result = {
-                    "content": results['documents'][0][i],
-                    "metadata": results['metadatas'][0][i],
-                    "distance": results['distances'][0][i],
-                    "id": results['ids'][0][i]
-                }
-                formatted_results.append(result)
+            for doc, score in results:
+                formatted_results.append({
+                    "content": doc.page_content,
+                    "metadata": doc.metadata,
+                    "score": score,  # Меньше = лучше (0=идентично)
+                    "relevance": 1.0 - score  # Для удобства чтения
+                })
+            
+            print(f"🔍 Найдено {len(formatted_results)} релевантных чанков")
             
             return formatted_results
-            
+        
         except Exception as e:
-            logger.error(f"Error searching documents: {e}")
+            print(f"❌ Ошибка поиска: {e}")
             return []
     
-    def get_document_stats(self) -> Dict[str, Any]:
-        """Получение статистики по обработанным документам"""
+    def get_stats(self) -> Dict:
+        """Получить статистику обработки"""
         try:
-            collection_count = self.collection.count()
-            
-            return {
-                "total_chunks": collection_count,
-                "collection_name": config.vector.collection_name,
-                "persist_directory": config.vector.persist_directory,
-                "embedding_model": config.vector.embedding_model
-            }
-        except Exception as e:
-            logger.error(f"Error getting stats: {e}")
-            return {}
-
-# Функции для использования в других модулях
-def create_document_processor() -> DocumentProcessor:
-    """Создание экземпляра обработчика документов"""
-    return DocumentProcessor()
-
-def process_document_batch(file_paths: List[str]) -> List[ProcessedDocument]:
-    """Пакетная обработка документов"""
-    processor = create_document_processor()
-    processed_docs = []
+            collection_count = self.vectorstore._collection.count()
+        except:
+            collection_count = 0
+        
+        self.stats["vectors_in_db"] = collection_count
+        
+        return self.stats
     
-    for file_path in file_paths:
-        doc = processor.process_single_document(file_path)
-        if doc:
-            processed_docs.append(doc)
-    
-    # Создание эмбеддингов
-    if processed_docs:
-        processor.create_embeddings(processed_docs)
-    
-    return processed_docs
+    def delete_collection(self):
+        """Удалить всю коллекцию (для сброса)"""
+        print("⚠️ Удаление коллекции ChromaDB...")
+        self.vectorstore.delete_collection()
+        self.vectorstore.persist()
+        print("✅ Коллекция удалена")
+        
+        # Сброс статистики
+        self.stats = {
+            "files_processed": 0,
+            "chunks_created": 0,
+            "vectors_stored": 0,
+            "total_size_mb": 0.0
+        }

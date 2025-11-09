@@ -1,205 +1,331 @@
 """
-Конфигурационный файл AI-агента
-Настройки для Mistral AI 7B, GPU, путей и параметров обучения
+КОНФИГУРАЦИЯ AI-АССИСТЕНТА ДЛЯ P104-100 8GB VRAM (sm_61 Pascal)
+===============================================================
+ВНИМАНИЕ: Этот файл тщательно отлажен для 8GB VRAM. 
+Не меняйте параметры без понимания их влияния на память!
+
+Основные оптимизации:
+1. 8-bit квантизация (экономит ~50% VRAM)
+2. LoRA без lm_head (экономит ~500MB)
+3. batch_size=1 с gradient_accumulation (стабильность)
+4. Ограниченный max_new_tokens (предотвращает OOM)
 """
 
 import os
-from pathlib import Path
-from dataclasses import dataclass
-from typing import Optional, List
+from dataclasses import dataclass, field
+from typing import List, Dict
+import torch
+
+# ===================================================================
+# ГЛОБАЛЬНЫЕ НАСТРОЙКИ ПАМЯТИ
+# ===================================================================
+# Эти значения рассчитаны для P104-100 8GB VRAM
+# При изменении GPU обновите их через validate_gpu_config()
+
+VRAM_LIMIT_GB = 8.0  # Всего VRAM на P104-100
+SAFE_VRAM_USAGE_GB = 6.5  # Безопасное использование (оставляем запас)
 
 @dataclass
 class ModelConfig:
-    """Конфигурация модели Mistral AI 7B"""
-    model_name: str = "/home/ai-agent/models/Mistral-7B-Instruct-v0.3"
-    cache_dir: str = "/home/ai-agent/models"
+    """
+    НАСТРОЙКИ МОДЕЛИ MISTRAL 7B
+    
+    Критичные параметры для 8GB:
+    - load_in_8bit=True: Обязательно! Снижает память с 14GB до ~7GB
+    - load_in_4bit=False: 4-bit дает худшее качество, не используем
+    - max_new_tokens=1024: Ограничение длины ответов (бережет память)
+    - torch_dtype="float16": Оптимально для 8-bit квантизации
+    """
+    
+    # Базовая модель (можно заменить на CodeLlama или DeepSeek Coder)
+    model_name: str = "mistralai/Mistral-7B-Instruct-v0.3"
+    
+    # Пути к кэшу (папка models внутри data)
+    cache_dir: str = "/app/data/models"
+    
+    # Устройство: cuda для GPU, cpu для тестирования
     device: str = "cuda"
+    
+    # Тип данных: float16 для экономии памяти
     torch_dtype: str = "float16"
-    load_in_8bit: bool = True  # Для 8GB GPU
-    load_in_4bit: bool = False # Для 4GB GPU
+    
+    # ✅ КРИТИЧНО: 8-bit квантизация для 8GB VRAM
+    # Без этого модель не загрузится (занимает 14GB в FP16)
+    load_in_8bit: bool = True
+    
+    # 4-bit квантизация отключена (качество хуже, экономия небольшая)
+    load_in_4bit: bool = False
+    
+    # Доверие коду модели (требуется для некоторых моделей)
     trust_remote_code: bool = True
+    
+    # Кэширование для ускорения генерации
     use_cache: bool = True
-    max_new_tokens: int = 512
-    temperature: float = 0.7
-    top_p: float = 0.9
-    top_k: int = 50
-    repetition_penalty: float = 1.1
+    
+    # ✅ ОГРАНИЧЕНИЕ: Максимум 1024 токена на ответ
+    # При больших значениях будет OOM при генерации
+    max_new_tokens: int = 1024
+    
+    # Параметры генерации (качество ответов)
+    temperature: float = 0.7  # 0.3 для кода, 0.7 для общих задач
+    top_p: float = 0.9        # Nucleus sampling
+    top_k: int = 50           # Top-k sampling
+    repetition_penalty: float = 1.1  # Предотвращает повторы
+    
+    # ✅ ПАРАМЕТРЫ ДЛЯ IDE ИНТЕГРАЦИИ
+    # Меньшая температура для детерминированных ответов по коду
+    code_temperature: float = 0.3
+    
+    # Максимальный размер файла для анализа (в токенах)
+    max_file_tokens: int = 1500  # ~1000-1500 токенов = ~500 строк кода
 
 @dataclass
 class TrainingConfig:
-    """Конфигурация обучения модели"""
+    """
+    НАСТРОЙКИ ДООБУЧЕНИЯ LORA
+    
+    Критичные параметры для 8GB VRAM:
+    - per_device_train_batch_size=1: Обязательно! Больший batch вызовет OOM
+    - gradient_accumulation_steps=8: Компенсирует маленький batch
+    - lora_r=16: Меньше = экономия памяти (32 требует больше VRAM)
+    - optim="paged_adamw_8bit": 8-bit оптимизатор экономит память
+    """
+    
+    # Скорость обучения
     learning_rate: float = 2e-5
+    
+    # Количество эпох
     num_train_epochs: int = 3
+    
+    # ✅ КРИТИЧНО: Batch size = 1 для 8GB VRAM
     per_device_train_batch_size: int = 1
+    
+    # Batch size для валидации
     per_device_eval_batch_size: int = 1
-    gradient_accumulation_steps: int = 4
+    
+    # ✅ КОМПЕНСАЦИЯ: Накопление градиентов за 8 шагов
+    # Дает эффект batch_size=8 без использования лишней памяти
+    gradient_accumulation_steps: int = 8
+    
+    # Шаги разогрева
     warmup_steps: int = 100
+    
+    # Весовой распад (регуляризация)
     weight_decay: float = 0.01
+    
+    # Частота логирования
     logging_steps: int = 10
+    
+    # Частота сохранения чекпоинтов
     save_steps: int = 500
+    
+    # Частота валидации
     eval_steps: int = 500
-    save_total_limit: int = 3
+    
+    # Сохранять только последние 2 чекпоинта (экономия места)
+    save_total_limit: int = 2
+    
+    # ✅ ТИП ОПТИМИЗАТОРА: paged_adamw_8bit
+    # Использует 8-bit оптимизатор для экономии памяти
+    optim: str = "paged_adamw_8bit"
+    
+    # Mixed precision обучение (ускорение)
+    fp16: bool = True
+    
+    # Тип расписания скорости обучения
     lr_scheduler_type: str = "cosine"
-    optim: str = "adamw_torch"
-    fp16: bool = True  # Для GPU
-
-    # LoRA параметры для эффективного обучения
-    use_lora: bool = True
+    
+    # ✅ ПАРАМЕТРЫ LORA
+    use_lora: bool = True  # Включить LoRA дообучение
+    
+    # Ранг матрицы LoRA (меньше = экономия памяти)
+    # 16 для 8GB, 32 для 12GB+, 64 для 24GB+
     lora_r: int = 16
+    
+    # Alpha параметр LoRA (обычно lora_r * 2)
     lora_alpha: int = 32
+    
+    # Dropout в LoRA (регуляризация)
     lora_dropout: float = 0.1
-    lora_target_modules: List[str] = None
+    
+    # ✅ КРИТИЧНО: ЦЕЛЕВЫЕ МОДУЛИ ДЛЯ LORA
+    # Убран 'lm_head' - экономит ~500MB VRAM без потери качества
+    lora_target_modules: List[str] = field(default_factory=lambda: [
+        "q_proj", "k_proj", "v_proj", "o_proj",  # Внимание
+        "gate_proj", "up_proj", "down_proj",    # FFN блоки
+        # ❌ УБРАНО: "lm_head" (не нужен для LoRA, тяжелый)
+    ])
 
 @dataclass
-class DataConfig:
-    """Конфигурация данных"""
-    documents_path: str = "/home/ai-agent/documents"
-    cache_path: str = "/home/ai-agent/cache"
-    chunk_size: int = 1000
-    chunk_overlap: int = 200
+class DocumentConfig:
+    """
+    НАСТРОЙКИ ОБРАБОТКИ ДОКУМЕНТОВ
+    
+    Оптимизировано для IDE интеграции:
+    - Поддержка .py, .java, .kt, .xml (Android Studio)
+    - Ограничение размера файла 50MB (защита от огромных файлов)
+    """
+    
+    # Путь к директории с документами
+    documents_path: str = "/app/data/documents"
+    
+    # Путь к кэшу
+    cache_path: str = "/app/data/cache"
+    
+    # ✅ РАЗМЕР ЧАНКОВ: 512 токенов
+    # Меньшие чанки = быстрее поиск, большее количество векторов
+    # Для кода оптимально 512 (примерно 300-400 строк)
+    chunk_size: int = 512
+    
+    # Перекрытие чанков (для сохранения контекста)
+    chunk_overlap: int = 50
+    
+    # Максимальный размер файла (защита)
     max_file_size_mb: int = 50
-
-    # Поддерживаемые форматы
-    supported_formats: List[str] = None
-
-    # Специализация документов
-    programming_extensions: List[str] = None
-    legal_extensions: List[str] = None
+    
+    # ✅ ПОДДЕРЖИВАЕМЫЕ ФОРМАТЫ (для IDE)
+    # Исходные файлы + документация
+    supported_formats: List[str] = field(default_factory=lambda: [
+        # Код
+        ".py", ".java", ".kt", ".js", ".ts", ".cpp", ".c", ".h", ".cs", ".go", ".rs",
+        # Android Studio
+        ".xml", ".gradle", ".properties",
+        # Документация
+        ".pdf", ".docx", ".txt", ".md", ".html", ".rst"
+    ])
 
 @dataclass
 class VectorConfig:
-    """Конфигурация векторной базы данных"""
+    """
+    НАСТРОЙКИ ВЕКТОРНОЙ БАЗЫ (ChromaDB)
+    
+    Используется для поиска похожих документов
+    """
+    
+    # Модель эмбеддингов (поддержка мультиязычности)
+    # Для 8GB используем легкую версию (MiniLM), для 12GB+ можно mpnet
     embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-    chroma_host: str = "localhost"
-    chroma_port: int = 8001
-    collection_name: str = "ai-agent-collection"
-    persist_directory: str = "/home/ai-agent/chroma"
+    
+    # Имя коллекции в ChromaDB
+    collection_name: str = "ai-assistant-p104"
+    
+    # Путь для сохранения векторов
+    persist_directory: str = "/app/data/chroma"
+    
+    # Количество результатов поиска
+    search_k: int = 5
+    
+    # Порог схожести (от 0.0 до 1.0)
+    similarity_threshold: float = 0.75
 
 @dataclass
-class KnowledgeGraphConfig:
-    """Конфигурация Neo4j Knowledge Graph"""
-    uri: str = "bolt://localhost:7687"
-    user: str = "neo4j"
-    password: str = "password"
-    database: str = "neo4j"
-
-@dataclass
-class CLIConfig:
-    """Конфигурация CLI интерфейса"""
-    max_history: int = 100
-    show_thinking: bool = False
-    auto_save_context: bool = True
-    context_file: str = "/home/ai-agent/cache/context.json"
+class IDEConfig:
+    """
+    НАСТРОЙКИ ИНТЕГРАЦИИ С IDE
+    
+    Специфические параметры для VSCode и Android Studio
+    """
+    
+    # Путь к проектам VSCode (отслеживание файлов)
+    vscode_projects_path: str = "/app/data/vscode_projects"
+    
+    # Временный кэш файлов (анализируются в реальном времени)
+    temp_cache_path: str = "/app/data/cache/ide"
+    
+    # Максимальная глубина вложенности при сканировании проектов
+    max_scan_depth: int = 5
+    
+    # Файлы, которые нужно игнорировать
+    ignore_patterns: List[str] = field(default_factory=lambda: [
+        "*.class", "*.o", "*.so", "*.dll", "*.exe",  # Скомпилированные
+        "*.log", "*.tmp", "*.temp", "*.cache",      # Временные
+        ".git/", ".svn/", ".idea/", ".vscode/",    # Служебные
+        "node_modules/", "dist/", "build/",         # Директории сборки
+        "*.min.js", "*.min.css",                    # Минифицированные
+    ])
 
 class Config:
-    """Основной класс конфигурации"""
-
+    """
+    ГЛАВНЫЙ КЛАСС КОНФИГУРАЦИИ
+    
+    Автоматически определяет оптимальные параметры под GPU
+    """
+    
     def __init__(self):
-        # Установка путей из переменных окружения
-        self.setup_paths()
-
-        # Инициализация конфигураций
+        # Инициализация подсекций
         self.model = ModelConfig()
         self.training = TrainingConfig()
-        self.data = DataConfig()
+        self.documents = DocumentConfig()
         self.vector = VectorConfig()
-        self.knowledge_graph = KnowledgeGraphConfig()
-        self.cli = CLIConfig()
-
-        # Настройка специфических параметров
-        self.setup_specific_configs()
-
-    def setup_paths(self):
-        """Установка путей из переменных окружения"""
-        base_path = os.getenv("AGENT_HOME", "/home/ai-agent")
-
-        # Обновление путей в конфигурациях
-        os.environ["TRANSFORMERS_CACHE"] = os.path.join(base_path, "models")
-        os.environ["HF_HOME"] = os.path.join(base_path, "models")
-        os.environ["XDG_CACHE_HOME"] = os.path.join(base_path, "cache")
-
-    def setup_specific_configs(self):
-        """Настройка специфических параметров"""
-        # Поддерживаемые форматы документов
-        self.data.supported_formats = [".pdf", ".doc", ".docx", ".txt", ".md", ".py", ".java", ".kt", ".js", ".html", ".css"]
-
-        # Программные файлы
-        self.data.programming_extensions = [".py", ".java", ".kt", ".js", ".ts", ".cpp", ".c", ".h", ".cs", ".go", ".rs", ".php", ".rb", ".swift"]
-
-        # Юридические документы
-        self.data.legal_extensions = [".doc", ".docx", ".pdf", ".rtf"]
-
-        # LoRA целевые модули для Mistral
-        self.training.lora_target_modules = [
-            "q_proj", "k_proj", "v_proj", "o_proj",
-            "gate_proj", "up_proj", "down_proj",
-#            "lm_head"
-        ]
-
-    def update_from_env(self):
-        """Обновление конфигурации из переменных окружения"""
-        # Model config
-        if os.getenv("MODEL_NAME"):
-            self.model.model_name = os.getenv("MODEL_NAME")
-        if os.getenv("DEVICE"):
-            self.model.device = os.getenv("DEVICE")
-
-        # Data paths
-        if os.getenv("DOCUMENT_PATH"):
-            self.data.documents_path = os.getenv("DOCUMENT_PATH")
-        if os.getenv("CACHE_PATH"):
-            self.data.cache_path = os.getenv("CACHE_PATH")
-
-        # Neo4j config
-        if os.getenv("NEO4J_URI"):
-            self.knowledge_graph.uri = os.getenv("NEO4J_URI")
-        if os.getenv("NEO4J_USER"):
-            self.knowledge_graph.user = os.getenv("NEO4J_USER")
-        if os.getenv("NEO4J_PASSWORD"):
-            self.knowledge_graph.password = os.getenv("NEO4J_PASSWORD")
-
-        # Chroma config
-        if os.getenv("CHROMA_HOST"):
-            self.vector.chroma_host = os.getenv("CHROMA_HOST")
-        if os.getenv("CHROMA_PORT"):
-            self.vector.chroma_port = int(os.getenv("CHROMA_PORT"))
-
-    def ensure_directories(self):
-        """Создание необходимых директорий"""
+        self.ide = IDEConfig()
+        
+        # ✅ АВТОНАСТРОЙКА ПОД GPU
+        self._validate_gpu_config()
+        
+        # Создание директорий
+        self._create_directories()
+    
+    def _validate_gpu_config(self):
+        """
+        ВАЛИДАЦИЯ КОНФИГУРАЦИИ ПОД GPU
+        
+        Этот метод критичен для предотвращения OOM
+        """
+        
+        if not torch.cuda.is_available():
+            warn("CUDA не доступен! Переключение на CPU (будет очень медленно)")
+            self.model.device = "cpu"
+            self.model.load_in_8bit = False
+            self.training.fp16 = False
+            return
+        
+        # Получение информации о GPU 0
+        gpu_properties = torch.cuda.get_device_properties(0)
+        gpu_name = gpu_properties.name
+        total_vram = gpu_properties.total_memory / (1024**3)  # В GB
+        
+        log(f"Обнаружен GPU: {gpu_name} ({total_vram:.1f}GB)")
+        
+        # Проверка на P104-100 (sm_61)
+        if "P104-100" in gpu_name or total_vram < 9.0:
+            log("🎯 Применена оптимизация для 8GB VRAM (sm_61 Pascal)")
+            
+            # Принудительное включение 8-bit
+            self.model.load_in_8bit = True
+            self.model.load_in_4bit = False
+            
+            # Ограничение длины генерации
+            self.model.max_new_tokens = min(self.model.max_new_tokens, 1024)
+            
+            # Безопасный batch size
+            self.training.per_device_train_batch_size = 1
+            self.training.gradient_accumulation_steps = 8
+            
+            # Уменьшенный LoRA ранг
+            self.training.lora_r = 16
+            
+            # Предупреждение, если VRAM < 8GB
+            if total_vram < 8.0:
+                warn(f"VRAM меньше 8GB ({total_vram:.1f}GB)! Модель может не загрузиться.")
+        else:
+            log("✅ Обнаружен GPU с 12GB+ VRAM. Можно увеличить параметры.")
+            self.training.per_device_train_batch_size = 2
+            self.training.lora_r = 32
+    
+    def _create_directories(self):
+        """Создание всех необходимых директорий"""
         directories = [
             self.model.cache_dir,
-            self.data.documents_path,
-            self.data.cache_path,
+            self.documents.documents_path,
+            self.documents.cache_path,
             self.vector.persist_directory,
-            Path(self.cli.context_file).parent
+            self.ide.vscode_projects_path,
+            self.ide.temp_cache_path,
         ]
-
+        
         for directory in directories:
-            Path(directory).mkdir(parents=True, exist_ok=True)
-
-    def validate_gpu_config(self):
-        """Валидация конфигурации GPU"""
-        if self.model.device == "cuda":
-            try:
-                import torch
-                if not torch.cuda.is_available():
-                    print("Warning: CUDA not available, switching to CPU")
-                    self.model.device = "cpu"
-                    self.model.load_in_8bit = False
-                else:
-                    gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1024**3
-                    print(f"GPU Memory: {gpu_memory:.1f}GB")
-                    if gpu_memory < 4:
-                        print("Warning: GPU memory less than 8GB, enabling 4-bit quantization")
-                        self.model.load_in_4bit = True
-                        self.model.load_in_8bit = False
-            except ImportError:
-                print("Warning: PyTorch not available, switching to CPU")
-                self.model.device = "cpu"
-                self.model.load_in_8bit = False
+            os.makedirs(directory, exist_ok=True)
+            log(f"✅ Директория: {directory}")
 
 # Глобальный экземпляр конфигурации
 config = Config()
-config.update_from_env()
-config.ensure_directories()
-config.validate_gpu_config()

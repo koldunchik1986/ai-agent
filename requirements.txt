@@ -1,46 +1,56 @@
-# Core ML/AI dependencies
-torch>=2.0.0
-transformers>=4.35.0
-accelerate>=0.24.0
-bitsandbytes>=0.41.0
-sentence-transformers>=2.2.0
-datasets>=2.14.0
-peft>=0.6.0
- 
-# LangChain ecosystem
-langchain>=0.0.340
-langchain-community>=0.0.4
-langchain-core>=0.1.8
-langchain-openai>=0.0.2
- 
-# Vector databases
-chromadb>=0.4.15
-faiss-cpu>=1.7.4
- 
-# Knowledge graph
-neo4j>=5.14.0
-py2neo>=2021.2.4
- 
-# Document processing
-pypdf2>=3.0.1
-python-docx>=0.8.11
-python-docx2txt>=0.8
-unstructured[pdf]>=0.10.0
-pymupdf>=1.23.0
- 
-# CLI interface
-rich>=13.6.0
-click>=8.1.7
-prompt-toolkit>=3.0.39
- 
-# Utilities
-numpy>=1.24.0
-pandas>=2.1.0
-tqdm>=4.66.0
-pyyaml>=6.0.1
-python-dotenv>=1.0.0
-loguru>=0.7.2
- 
-# Development
-pytest>=7.4.0
-black>=23.9.0
+# ===================================================================
+# AI-АССИСТЕНТ: ФИКСИРОВАННЫЕ ВЕРСИИ ЗАВИСИМОСТЕЙ
+# ===================================================================
+# Версии строго зафиксированы для стабильности
+# Для CUDA 11.8 sm_61 (P104-100)
+
+# ---------------------------------------------------------------
+# ЯДРО ML: PyTorch + Transformers (ДЛЯ sm_61 CUDA 11.8)
+# ---------------------------------------------------------------
+torch==2.0.1+cu118
+torchvision==0.15.2+cu118
+torchaudio==2.0.2+cu118
+transformers==4.38.0
+accelerate==0.24.0
+bitsandbytes==0.41.1          # 8-bit квантизация (критично!)
+datasets==2.14.6
+peft==0.6.2                   # LoRA дообучение
+sentence-transformers==2.2.2  # Эмбеддинги
+
+# ---------------------------------------------------------------
+# LANGCHAIN (СТАБИЛЬНЫЕ ВЕРСИИ)
+# ---------------------------------------------------------------
+langchain==0.0.350
+langchain-community==0.0.10
+langchain-core==0.1.8
+
+# ---------------------------------------------------------------
+# ВЕКТОРНАЯ БАЗА (CHROMADB)
+# ---------------------------------------------------------------
+chromadb==0.4.15
+
+# ---------------------------------------------------------------
+# ОБРАБОТКА ДОКУМЕНТОВ
+# ---------------------------------------------------------------
+PyMuPDF==1.23.8           # PDF
+python-docx==0.8.11       # DOCX
+beautifulsoup4==4.12.2    # HTML
+unstructured==0.10.30     # Разные форматы
+unstructured-inference==0.7.7
+pillow==10.0.1            # Images
+
+# ---------------------------------------------------------------
+# CLI И УТИЛИТЫ
+# ---------------------------------------------------------------
+rich==13.6.0              # Красивый CLI
+click==8.1.7
+prompt-toolkit==3.0.39    # Interactive input
+tqdm==4.66.1              # Progress bars
+loguru==0.7.2             # Logging
+python-dotenv==1.0.0      # .env support
+
+# ---------------------------------------------------------------
+# РАЗРАБОТКА
+# ---------------------------------------------------------------
+pytest==7.4.0             # Тестирование
+black==23.9.0             # Форматирование кода
