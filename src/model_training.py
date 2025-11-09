@@ -37,6 +37,10 @@ from datasets import Dataset
 from config import config
 from document_processor import ProcessedChunk
 
+# прогресс-бар для дообучения
+from tqdm import tqdm
+for epoch in tqdm(range(epochs), desc="Обучение"):
+
 class ModelTrainer:
     """
     КЛАСС ДЛЯ ДООБУЧЕНИЯ MISTRAL-7B ЧЕРЕЗ LoRA
