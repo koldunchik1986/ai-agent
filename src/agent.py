@@ -75,7 +75,12 @@ class AIAssistant:
         if torch.cuda.is_available():
             return torch.cuda.memory_allocated() / (1024**3)
         return 0.0
-    
+    # проверку VRAM в runtime
+    def check_vram_before_operation():
+        vram_used = torch.cuda.memory_allocated() / 1024**3
+        if vram_used > 7.5:
+            torch.cuda.empty_cache()    
+
     def _load_model(self, model_path: Optional[str] = None):
         """
         ЗАГРУЗКА МОДЕЛИ С 8-BIT КВАНТИЗАЦИЕЙ

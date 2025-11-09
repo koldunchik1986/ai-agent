@@ -16,6 +16,7 @@ class VSCodeIntegration:
     def __init__(self, assistant):
         self.assistant = assistant
         self.active_project = None
+        self.file_cache = {}  # Кэш анализированных файлов
     
     async def on_file_open(self, file_path: str):
         """Обработка открытия файла в VSCode"""
